@@ -34,4 +34,3 @@ define('UPLOAD_RENAME_FILE', true);
 # 3. Email configuration constants
 define('DEFAULT_EMAIL_SENDER', 'contact@frederickagathe.fr');
 define('LOGO_PATH', '/images/logo.webp');
-define('APP_NAME', 'CMS Blog');
