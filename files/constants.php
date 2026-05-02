@@ -19,7 +19,7 @@ define('LOGS_RETENTION_DELAY', 30); // days
 
 # 2. Uploader configuration constants
 // Chemin d'accès au répertoire d'upload (dans le dossier public)
-define('UPLOAD_DIR', PUBLIC_DIR . '/uploads/');
+define('UPLOAD_DIR', 'uploads');
 
 // Taille maximale des fichiers autorisée (en octets)
 // Exemple : 50 Mo

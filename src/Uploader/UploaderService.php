@@ -24,16 +24,11 @@ class UploaderService
     public function __construct(
         private readonly Security $security,
         private readonly SluggerInterface $slugger,
-        private readonly string $projectDir,
-        private readonly string $environment
+        private readonly string $projectDir, // Chemin racine du projet Symfony
     ) {
         $this->filesystem = new Filesystem();
     }
 
-    /**
-     * @param string $subDirectory
-     * @return self
-     */
     public function setUploadDirectory(string $subDirectory): self
     {
         $this->subDirectory = trim($subDirectory, '/');
@@ -41,83 +36,52 @@ class UploaderService
     }
 
     /**
-     * Calcule le chemin absolu du répertoire d'uploads de manière robuste.
-     * @return string
+     * Retourne le chemin absolu vers le dossier public du projet.
      */
-    private function getBaseDirectory(): string
+    private function getAbsolutePublicDir(): string
     {
-        return (defined('PUBLIC_DIR') ? (string) PUBLIC_DIR . '/' : 'public/') . (defined('UPLOAD_DIR') ? (string) UPLOAD_DIR : 'uploads/');
+        $publicFolderName = defined('PUBLIC_DIR') ? (string) PUBLIC_DIR : 'public';
+        return rtrim($this->projectDir, '/\\') . DIRECTORY_SEPARATOR . $publicFolderName;
     }
 
     /**
-     * @param UploadedFile $file
-     * @param string|null $oldFilename
-     * 
-     * @return UploadResult
+     * Retourne le chemin relatif du dossier d'upload (ex: uploads).
      */
+    private function getRelativeUploadDir(): string
+    {
+        return defined('UPLOAD_DIR') ? (string) UPLOAD_DIR : 'uploads';
+    }
+
     public function upload(UploadedFile $file, ?string $oldFilename = null): UploadResult
     {
         $originalName = $file->getClientOriginalName();
-
-        $this->generateLog(LoggerLevelEnum::Info, [
-            'action' => 'upload_start',
-            'file' => $originalName,
-        ]);
-
-        return $this->handleStandardUpload($file, $originalName, $oldFilename);
-    }
-
-    /**
-     * Retourne le chemin absolu vers le répertoire public.
-     */
-    private function getAbsolutePublicPath(): string
-    {
-        $publicDir = defined('PUBLIC_DIR') ? (string) PUBLIC_DIR : 'public';
-
-        // Si le chemin n'est pas déjà absolu, on utilise projectDir
-        if (!str_starts_with($publicDir, '/') && !preg_match('/^[a-zA-Z]:\\\\/', $publicDir)) {
-            return rtrim($this->projectDir, '/\\') . DIRECTORY_SEPARATOR . ltrim($publicDir, '/\\');
-        }
-
-        return $publicDir;
-    }
-
-    /**
-     * @param UploadedFile $file
-     * @param string $originalName
-     * @param string|null $oldFilename
-     * 
-     * @return UploadResult
-     */
-    private function handleStandardUpload(UploadedFile $file, string $originalName, ?string $oldFilename): UploadResult
-    {
         $safeFilename = $this->slugger->slug(pathinfo($originalName, PATHINFO_FILENAME))->lower();
         $extension = $file->guessExtension() ?: pathinfo($originalName, PATHINFO_EXTENSION);
         $newFilename = $safeFilename . '-' . uniqid() . '.' . $extension;
 
-        // 1. Déterminer le chemin relatif de base (ex: uploads/avatars)
-        $uploadBase = defined('UPLOAD_DIR') ? (string) UPLOAD_DIR : 'uploads';
-        $relativeTargetDir = rtrim($uploadBase . '/' . $this->subDirectory, '/');
+        // 1. Calcul du chemin relatif final pour la BDD (ex: uploads/avatars)
+        $relativeDir = $this->getRelativeUploadDir() . ($this->subDirectory ? '/' . $this->subDirectory : '');
 
-        // 2. Calculer le chemin ABSOLU pour le déplacement physique du fichier
-        $absoluteTargetDir = rtrim($this->getAbsolutePublicPath(), '/\\') . DIRECTORY_SEPARATOR . ltrim($relativeTargetDir, '/\\');
+        // 2. Calcul du chemin ABSOLU sur le disque pour PHP (ex: /Users/.../public/uploads/avatars)
+        $absoluteTargetDir = $this->getAbsolutePublicDir() . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relativeDir);
 
         if (!$this->filesystem->exists($absoluteTargetDir)) {
             $this->filesystem->mkdir($absoluteTargetDir, 0755);
         }
 
         try {
+            // Déplacement physique du fichier
             $file->move($absoluteTargetDir, $newFilename);
 
             if ($oldFilename) {
                 $this->delete($oldFilename);
             }
 
-            // 3. Stocker le chemin relatif exact pour la BDD (ex: uploads/avatars/file.jpg)
-            $relativePath = $relativeTargetDir . '/' . $newFilename;
+            // 3. Construction du résultat avec le chemin relatif propre pour l'application
+            $finalRelativePath = $relativeDir . '/' . $newFilename;
 
             return new UploadResult(
-                relativePath: str_replace(['//', '\\\\'], ['/', '/'], $relativePath),
+                relativePath: str_replace('//', '/', $finalRelativePath),
                 originalName: $originalName,
                 newName: $newFilename,
                 size: filesize($absoluteTargetDir . DIRECTORY_SEPARATOR . $newFilename),
@@ -129,17 +93,13 @@ class UploaderService
         }
     }
 
-    /**
-     * @param string $path
-     * 
-     * @return void
-     */
     public function delete(string $path): void
     {
-        $abs = rtrim($this->getAbsolutePublicPath(), '/\\') . DIRECTORY_SEPARATOR . ltrim($path, '/\\');
-
-        if ($this->filesystem->exists($abs)) {
-            $this->filesystem->remove($abs);
+        // On construit le chemin absolu à partir de la racine public
+        $absolutePath = $this->getAbsolutePublicDir() . DIRECTORY_SEPARATOR . ltrim(str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $path), DIRECTORY_SEPARATOR);
+        
+        if ($this->filesystem->exists($absolutePath)) {
+            $this->filesystem->remove($absolutePath);
         }
     }
 }
