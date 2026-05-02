@@ -19,6 +19,8 @@ declare(strict_types=1);
 namespace Fagathe\CorePhp\Utils;
 
 use Detection\MobileDetect;
+use Fagathe\CorePhp\Enum\BrowserEnum;
+use Fagathe\CorePhp\Enum\DeviceEnum;
 use Symfony\Component\HttpFoundation\Request;
 
 /**

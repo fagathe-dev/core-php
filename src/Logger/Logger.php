@@ -2,8 +2,9 @@
 
 namespace Fagathe\CorePhp\Logger;
 
+use Fagathe\CorePhp\Enum\DeviceEnum;
 use Fagathe\CorePhp\Enum\LoggerLevelEnum;
-use Fagathe\CorePhp\Utils\DatetimeTrait;
+use Fagathe\CorePhp\Trait\DatetimeTrait;
 use Fagathe\CorePhp\Utils\DetectDevice;
 use Fagathe\CorePhp\Utils\IPChecker;
 use Symfony\Component\HttpFoundation\Request;
@@ -209,7 +210,7 @@ final class Logger extends JsonLogService
 
         // Contexte CLI
         if ($this->isCli()) {
-            $context['device'] = 'CLI';
+            $context['device'] = DeviceEnum::Terminal->value;
             $context['browser'] = 'Console';
             $context['method'] = 'CLI';
         } else {

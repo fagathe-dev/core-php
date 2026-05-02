@@ -72,7 +72,7 @@ final class LoggerTemplate
 
         // Base de l'accordéon bootstrap
         $buttonClasses = 'accordion-button collapsed no-icon';
-        $buttonClasses .= ' alert alert-' . $color . ' mb-0 p-3 shadow-none';
+        $buttonClasses .= 'mb-0 p-3 shadow-none';
 
         $attributes = '';
 
@@ -94,8 +94,9 @@ final class LoggerTemplate
         $browserInfo = $this->getBrowserInfo();
 
         $headerText = '<span class="d-flex align-items-center gap-2 flex-wrap text-body">';
-        $headerText .= '<i class="ri-' . $icon . '-line"></i>';
-        $headerText .= '<strong>' . ucfirst($logLevel?->value ?? 'unknown') . '</strong>';
+        $headerText .= '<span class="badge bg-' . $color . '-subtle text-' . $color . '">';
+        $headerText .= '<i class="' . $icon . ' me-1"></i>';
+        $headerText .= ucfirst($logLevel?->value ?? 'unknown') . '</span>';
         $headerText .= '<span class="opacity-50 mx-1">|</span>';
         $headerText .= '<span class="font-monospace">' . $timestamp . '</span>';
 
@@ -108,7 +109,8 @@ final class LoggerTemplate
         }
 
         $ipInfo = $this->getIpInfo();
-        if ($ipInfo) {
+
+        if ($ipInfo !== null) {
             $headerText .= '<span class="opacity-50 mx-1">|</span>' . $ipInfo;
         }
         $headerText .= '</span>';
@@ -391,6 +393,7 @@ final class LoggerTemplate
         try {
             $deviceEnum = DeviceEnum::fromString($device);
             $icon = $deviceEnum->getIcon();
+
         } catch (\Exception $e) {
             $icon = match (strtolower($device)) {
                 'mobile', 'phone' => self::PHONE_ICON,
@@ -408,8 +411,14 @@ final class LoggerTemplate
     private function getBrowserInfo(): ?string
     {
         $browser = $this->log->getContext('browser');
-        if (!$browser)
+
+        if (!$browser || $browser === 'Unknown') {
             return null;
+        }
+
+        if (strtolower($browser) === 'console') {
+            return '<span class="small">Terminal</span>';
+        }
 
         try {
             $browserEnum = BrowserEnum::fromString($browser);
@@ -428,8 +437,10 @@ final class LoggerTemplate
     private function getIpInfo(): ?string
     {
         $ip = $this->log->getContext('ip');
-        if (!$ip || $ip === 'unknown' || $ip === 'unknown IP address')
+
+        if (!$ip || $ip === null || $ip === 'unknown' || $ip === 'unknown IP address') {
             return null;
+        }
 
         return '<span class="d-flex align-items-center">' .
             '<i class="ri-global-line text-info me-1" title="IP Publique"></i>' .

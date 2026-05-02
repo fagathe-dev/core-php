@@ -3,9 +3,9 @@
 namespace Fagathe\CorePhp\Logger;
 
 use Fagathe\CorePhp\Logger\Logger;
-use Fagathe\CorePhp\Utils\DatetimeTrait;
 use DateTimeImmutable;
 use Fagathe\CorePhp\Enum\LoggerLevelEnum;
+use Fagathe\CorePhp\Trait\DatetimeTrait;
 use Iterator;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Filesystem\Exception\IOExceptionInterface;

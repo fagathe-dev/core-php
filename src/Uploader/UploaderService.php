@@ -24,7 +24,6 @@ class UploaderService
     public function __construct(
         private readonly Security $security,
         private readonly SluggerInterface $slugger,
-        private readonly string $cr2TmpDir,
         private readonly string $projectDir,
         private readonly string $environment
     ) {

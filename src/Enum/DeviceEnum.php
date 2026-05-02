@@ -26,7 +26,7 @@ enum DeviceEnum: string
     case Desktop = 'Desktop';
     case Mobile = 'Mobile';
     case Tablet = 'Tablet';
-    case Terminal = 'Terminal';
+    case Terminal = 'Terminal / CLI';
     case Unknown = 'Unknown Device';
 
     /**
