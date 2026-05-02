@@ -11,7 +11,7 @@ use Fagathe\CorePhp\File\MimeType;
 # Configuration constants
 
 // Autres constantes utiles
-define('PUBLIC_DIR', PROJECT_DIR . '/public');
+define('PUBLIC_DIR', 'public');
 
 # 1. Logs configuration constants
 define('LOGS_DIR', PROJECT_DIR . '/logs/');
