@@ -62,72 +62,99 @@ final class LoggerTemplate
     {
         $logLevel = $this->log->getLevel();
         $color = $logLevel?->getColor() ?? 'secondary';
-        $icon = $logLevel?->getIcon() ?? 'mobile';
+        $icon = $logLevel?->getIcon() ?? 'file-list-3-line';
         $timestamp = $this->log->getTimestamp()?->format('d/m/Y H:i:s') ?? 'N/A';
         $hasContent = $this->hasContent();
 
-        // Identifiants uniques pour lier le bouton au contenu (Standard Bootstrap 5)
+        // Identifiants uniques pour lier le bouton au contenu
         $collapseId = $this->getHtmlID();
         $headingId = 'heading_' . $collapseId;
 
         // Base de l'accordéon bootstrap
-        $buttonClasses = 'accordion-button collapsed no-icon';
-        $buttonClasses .= 'mb-0 p-3 shadow-none';
-
+        $buttonClasses = 'accordion-button collapsed no-icon mb-0 p-3 shadow-none';
         $attributes = '';
 
         if ($hasContent) {
-            // Configuration pour Velzon / Bootstrap 5 natif
             $attributes = sprintf(
                 ' data-bs-toggle="collapse" data-bs-target="#%s" aria-expanded="false" aria-controls="%s"',
                 $collapseId,
                 $collapseId
             );
         } else {
-            // Si pas de contenu : pas de chevron, pas de clic
             $buttonClasses .= ' no-icon';
             $attributes = ' style="cursor: default;"';
         }
 
-        // --- Construction du contenu texte du header ---
-        $deviceIcon = $this->getDeviceIcon();
-        $browserInfo = $this->getBrowserInfo();
+        // --- Récupération des nouvelles données métiers ---
+        $uid = $this->log->getContext('uid');
+        $action = $this->log->getContext('action');
+        $origin = $this->log->getContext('origin');
 
-        $headerText = '<span class="d-flex align-items-center gap-2 flex-wrap text-body">';
+        // --- Construction du contenu texte du header ---
+        // Ajout de w-100 et pe-3 pour utiliser tout l'espace et éviter de chevaucher le chevron de l'accordéon
+        $headerText = '<span class="d-flex align-items-center gap-2 flex-wrap w-100 text-body pe-3">';
+
+        // 1. Niveau et Date
         $headerText .= '<span class="badge bg-' . $color . '-subtle text-' . $color . '">';
         $headerText .= '<i class="' . $icon . ' me-1"></i>';
         $headerText .= ucfirst($logLevel?->value ?? 'unknown') . '</span>';
         $headerText .= '<span class="opacity-50 mx-1">|</span>';
-        $headerText .= '<span class="font-monospace">' . $timestamp . '</span>';
+        $headerText .= '<span class="font-monospace small">' . $timestamp . '</span>';
 
-        if ($deviceIcon) {
-            $headerText .= '<span class="opacity-50 mx-1">|</span>' . $deviceIcon;
+        // 2. Utilisateur (UID)
+        if ($uid) {
+            $headerText .= '<span class="opacity-50 mx-1">|</span>';
+            $headerText .= '<span class="badge border border-dark text-dark bg-transparent" title="Utilisateur">';
+            $headerText .= '<i class="ri-user-3-line me-1"></i>' . htmlspecialchars((string) $uid) . '</span>';
         }
 
-        if ($browserInfo) {
-            $headerText .= $browserInfo;
+        // 3. Origine & Action
+        if ($origin || $action) {
+            $headerText .= '<span class="opacity-50 mx-1">|</span>';
+
+            if ($origin) {
+                // Origine (ex: service/user-service) en badge gris discret
+                $headerText .= '<span class="badge bg-light text-secondary border me-1" title="Origine">';
+                $headerText .= '<i class="ri-folder-2-line me-1"></i>' . htmlspecialchars((string) $origin) . '</span>';
+            }
+
+            if ($action) {
+                // Action (ex: user.register.success) en badge coloré
+                $headerText .= '<span class="badge bg-primary-subtle text-primary border border-primary-subtle" title="Action métier">';
+                $headerText .= '<i class="ri-flashlight-line me-1"></i>' . htmlspecialchars((string) $action) . '</span>';
+            }
         }
 
+        // 4. Infos Techniques (Poussées à droite avec ms-auto)
+        $deviceIcon = $this->getDeviceIcon();
+        $browserInfo = $this->getBrowserInfo();
         $ipInfo = $this->getIpInfo();
 
-        if ($ipInfo !== null) {
-            $headerText .= '<span class="opacity-50 mx-1">|</span>' . $ipInfo;
+        if ($deviceIcon || $browserInfo || $ipInfo) {
+            // ms-auto est la clé : ça pousse tout ce bloc à l'extrême droite de la ligne
+            $headerText .= '<span class="ms-auto d-flex align-items-center gap-2 d-none d-md-flex">';
+
+            if ($deviceIcon) {
+                $headerText .= $deviceIcon;
+            }
+            if ($browserInfo) {
+                $headerText .= $browserInfo;
+            }
+            if ($ipInfo) {
+                $headerText .= '<span class="opacity-50 mx-1">|</span>' . $ipInfo;
+            }
+
+            $headerText .= '</span>';
         }
+
         $headerText .= '</span>';
 
         // --- Génération du HTML ---
-
-        // 1. Wrapper de l'item avec la classe "shadow" de Velzon
-        $this->addHTML('<div class="accordion-item shadow mb-2 overflow-hidden" style="border-color: transparent;">');
-
-        // 2. Header (h2) avec l'ID pour le aria-labelledby
+        $this->addHTML('<div class="accordion-item shadow-sm mb-2 overflow-hidden" style="border-color: transparent;">');
         $this->addHTML('<h2 class="accordion-header m-0" id="' . $headingId . '">');
-
-        // 3. Bouton déclencheur
         $this->addHTML('<button class="' . $buttonClasses . '" type="button"' . $attributes . '>');
         $this->addHTML($headerText);
         $this->addHTML('</button>');
-
         $this->addHTML('</h2>');
     }
 
