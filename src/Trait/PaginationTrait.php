@@ -14,7 +14,7 @@ use Knp\Component\Pager\Pagination\PaginationInterface;
 trait PaginationTrait
 {
     // La propriété DOIT être déclarée ici.
-    protected readonly PaginatorInterface $paginator;
+    public readonly PaginatorInterface $paginator;
 
     /**
      * Méthode générique de pagination avec KNP Paginator.
