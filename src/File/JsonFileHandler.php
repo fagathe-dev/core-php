@@ -34,22 +34,47 @@ class JsonFileHandler extends FileHandler
     // -------------------------------------------------------------------------
 
     /**
-     * Lit et décode un fichier JSON.
+     * Lit et décode un fichier JSON (avec support optionnel d'extraction de nœud).
      *
-     * @param string $filePath    Chemin vers le fichier JSON
-     * @param bool   $associative Si true, retourne un array, sinon un objet
+     * @param string      $filePath    Chemin vers le fichier JSON
+     * @param bool        $associative Si true, retourne un array, sinon un objet
+     * @param string|null $rootKey     Clé (ou chemin pointé) vers le nœud à extraire. Null = racine.
      *
      * @return array|object|null Données décodées ou null si erreur
      */
-    public function readJson(string $filePath, bool $associative = true): array|object|null
+    public function readJson(string $filePath, bool $associative = true, ?string $rootKey = null): array|object|null
     {
+        // Si une clé est demandée, on force d'abord le décodage en tableau pour extractNode
+        $decodeAsArray = $rootKey !== null ? true : $associative;
+
         $content = $this->read($filePath);
 
         if ($content === null) {
             return null;
         }
 
-        return $this->decodeJson($content, $associative);
+        $data = $this->decodeJson($content, $decodeAsArray);
+
+        if ($data === null) {
+            return null;
+        }
+
+        // Si une clé de ciblage est fournie, on extrait le sous-nœud
+        if ($rootKey !== null) {
+            $data = $this->extractNode($data, $rootKey, $filePath);
+
+            if ($data === null) {
+                return null;
+            }
+
+            // Si l'utilisateur a demandé explicitement un objet stdClass ($associative = false),
+            // on reconvertit proprement le tableau extrait en objet (gestion de la profondeur incluse)
+            if (!$associative) {
+                return json_decode(json_encode($data), false);
+            }
+        }
+
+        return $data;
     }
 
     /**
@@ -134,23 +159,16 @@ class JsonFileHandler extends FileHandler
      */
     public function readJsonAs(string $filePath, string $dtoClass, ?string $rootKey = null): ?object
     {
-        $data = $this->readJson($filePath, true);
+        // On délègue l'extraction du nœud directement à la nouvelle logique de readJson
+        $data = $this->readJson($filePath, true, $rootKey);
 
         if ($data === null) {
             return null;
         }
 
-        if ($rootKey !== null) {
-            $data = $this->extractNode($data, $rootKey, $filePath);
-
-            if ($data === null) {
-                return null;
-            }
-        }
-
         try {
             return $this->hydrate($dtoClass, $data);
-        } catch (InvalidArgumentException|RuntimeException $e) {
+        } catch (InvalidArgumentException | RuntimeException $e) {
             error_log("Erreur hydratation DTO [{$dtoClass}] depuis {$filePath} : {$e->getMessage()}");
             return null;
         }
@@ -202,13 +220,13 @@ class JsonFileHandler extends FileHandler
      */
     public function readJsonArrayAs(string $filePath, ?string $rootKey, string $itemClass): array
     {
-        $data = $this->readJson($filePath, true);
+        $data = $this->readJson($filePath, true, $rootKey);
 
         if (!is_array($data)) {
             return [];
         }
 
-        $items = $rootKey !== null ? ($data[$rootKey] ?? []) : $data;
+        $items = $data;
 
         if (!is_array($items)) {
             return [];
@@ -223,7 +241,7 @@ class JsonFileHandler extends FileHandler
 
             try {
                 $result[] = $this->hydrate($itemClass, $item);
-            } catch (InvalidArgumentException|RuntimeException $e) {
+            } catch (InvalidArgumentException | RuntimeException $e) {
                 error_log("Erreur hydratation DTO [{$itemClass}] : {$e->getMessage()}");
             }
         }
@@ -286,8 +304,8 @@ class JsonFileHandler extends FileHandler
      */
     private function resolveParameter(ReflectionParameter $param, array $data, string $dtoClass): mixed
     {
-        $name  = $param->getName();
-        $key   = $this->toSnakeCase($name);  // camelCase → snake_case pour matcher le JSON
+        $name = $param->getName();
+        $key = $this->toSnakeCase($name);  // camelCase → snake_case pour matcher le JSON
         $value = $data[$key] ?? $data[$name] ?? null; // fallback camelCase si le JSON utilise camelCase
 
         $hasValue = array_key_exists($key, $data) || array_key_exists($name, $data);
@@ -419,20 +437,20 @@ class JsonFileHandler extends FileHandler
     {
         return match ($type) {
             'string' => (string) $value,
-            'int'    => filter_var($value, FILTER_VALIDATE_INT) !== false
-                            ? (int) $value
-                            : throw new InvalidArgumentException(
-                                "Paramètre \${$paramName} attend un int dans {$dtoClass}, reçu : " . gettype($value)
-                            ),
-            'float'  => is_numeric($value)
-                            ? (float) $value
-                            : throw new InvalidArgumentException(
-                                "Paramètre \${$paramName} attend un float dans {$dtoClass}, reçu : " . gettype($value)
-                            ),
-            'bool'   => (bool) $value,
-            default  => throw new InvalidArgumentException(
-                            "Type scalaire non supporté : {$type} pour \${$paramName} dans {$dtoClass}."
-                        ),
+            'int' => filter_var($value, FILTER_VALIDATE_INT) !== false
+            ? (int) $value
+            : throw new InvalidArgumentException(
+                "Paramètre \${$paramName} attend un int dans {$dtoClass}, reçu : " . gettype($value)
+            ),
+            'float' => is_numeric($value)
+            ? (float) $value
+            : throw new InvalidArgumentException(
+                "Paramètre \${$paramName} attend un float dans {$dtoClass}, reçu : " . gettype($value)
+            ),
+            'bool' => (bool) $value,
+            default => throw new InvalidArgumentException(
+                "Type scalaire non supporté : {$type} pour \${$paramName} dans {$dtoClass}."
+            ),
         };
     }
 
@@ -531,8 +549,8 @@ class JsonFileHandler extends FileHandler
             return null;
         }
 
-        $data         = $this->readJson($filePath, true);
-        $size         = $this->getSize($filePath);
+        $data = $this->readJson($filePath, true);
+        $size = $this->getSize($filePath);
         $lastModified = $this->getLastModified($filePath);
 
         if ($data === null) {
@@ -540,19 +558,19 @@ class JsonFileHandler extends FileHandler
         }
 
         $stats = [
-            'file_size'           => $size,
+            'file_size' => $size,
             'file_size_formatted' => $this->getFormattedSize($filePath),
-            'last_modified'       => $lastModified?->format('Y-m-d H:i:s'),
-            'is_valid_json'       => true,
-            'data_type'           => gettype($data),
+            'last_modified' => $lastModified?->format('Y-m-d H:i:s'),
+            'is_valid_json' => true,
+            'data_type' => gettype($data),
         ];
 
         if (is_array($data)) {
             $stats['element_count'] = count($data);
-            $stats['is_empty']      = empty($data);
+            $stats['is_empty'] = empty($data);
         } elseif (is_object($data)) {
             $stats['property_count'] = count((array) $data);
-            $stats['is_empty']       = empty((array) $data);
+            $stats['is_empty'] = empty((array) $data);
         }
 
         return $stats;
