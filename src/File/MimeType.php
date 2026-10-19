@@ -12,7 +12,7 @@ final class MimeType
     public const PDF_MIMES = ['application/pdf'];
     public const PRESENTATION_MIMES = ['application/vnd.oasis.opendocument.presentation', 'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'];
     public const SPREADSHEET_MIMES = ['application/vnd.oasis.opendocument.spreadsheet'];
-    public const WORD_PROCESSING_MIMES = ['text/csv'];
+    public const WORD_PROCESSING_MIMES = ['text/csv', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword'];
     public const TEXTE_MIMES = ['application/vnd.oasis.opendocument.text'];
     public const VIDEO_MIMES = ['video/mpeg', 'video/x-msvideo', 'video/quicktime', 'video/msvideo', 'video/webm', 'video/x-msvideo', 'video/mp4', 'video/3gpp', 'video/3gpp2', 'video/ogg'];
 
@@ -137,17 +137,17 @@ final class MimeType
     // Simplification pour l'exemple, mais la méthode getSupportedMimetypes est importante
     public static function getSupportedMimetypes(): array
     {
-        return array_merge(
-            self::ARCHIVE_MIMES,
-            self::AUDIO_MIMES,
-            self::CODE_MIMES,
-            self::IMAGE_MIMES,
-            self::PDF_MIMES,
-            self::PRESENTATION_MIMES,
-            self::SPREADSHEET_MIMES,
-            self::WORD_PROCESSING_MIMES,
-            self::TEXTE_MIMES,
-            self::VIDEO_MIMES
-        );
+        return [
+            ...self::ARCHIVE_MIMES,
+            ...self::AUDIO_MIMES,
+            ...self::CODE_MIMES,
+            ...self::IMAGE_MIMES,
+            ...self::PDF_MIMES,
+            ...self::PRESENTATION_MIMES,
+            ...self::SPREADSHEET_MIMES,
+            ...self::WORD_PROCESSING_MIMES,
+            ...self::TEXTE_MIMES,
+            ...self::VIDEO_MIMES
+        ];
     }
 }
