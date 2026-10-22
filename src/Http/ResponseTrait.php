@@ -103,4 +103,24 @@ trait ResponseTrait
             'message' => $message,
         ], Response::HTTP_NOT_FOUND);
     }
+
+    /**
+     * Réponse JSON 401 Unauthorized (Non authentifié).
+     *
+     * @return object
+     */
+    public function sendUnauthorized(string $message = 'Authentification requise.'): object
+    {
+        return $this->sendJson(['message' => $message], Response::HTTP_UNAUTHORIZED);
+    }
+
+    /**
+     * Réponse JSON 403 Forbidden (Accès refusé / Droits insuffisants).
+     *
+     * @return object
+     */
+    public function sendForbidden(string $message = 'Accès non autorisé.'): object
+    {
+        return $this->sendJson(['message' => $message], Response::HTTP_FORBIDDEN);
+    }
 }

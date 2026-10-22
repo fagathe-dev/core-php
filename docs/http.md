@@ -134,6 +134,21 @@ class MyApiController
         return $this->sendJson(['error' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
     }
 
+    public function checkAccess(?User $user): object
+    {
+        if (!$user) {
+            // Réponse JSON 401 Unauthorized
+            return $this->sendUnauthorized('Authentification requise.');
+        }
+
+        if (!$user->isAdmin()) {
+            // Réponse JSON 403 Forbidden
+            return $this->sendForbidden('Accès non autorisé.');
+        }
+
+        return $this->sendJson(['message' => 'Bienvenue administrateur']);
+    }
+
     public function deleteUser(): object
     {
         // Réponse 204 No Content
