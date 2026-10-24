@@ -7,7 +7,7 @@ use Symfony\Component\HttpFoundation\Request;
 trait RequestTrait
 {
     /**
-     * Retrieves the `Request` object from global variables.
+     * Retrieves the `Request` object from global variables (without uploaded files, see RequestFactory).
      *
      * @return Request The Request object containing request information.
      *
@@ -19,7 +19,7 @@ trait RequestTrait
      */
     public function getRequest(): Request
     {
-        return Request::createFromGlobals();
+        return RequestFactory::fromGlobals();
     }
 
     /**

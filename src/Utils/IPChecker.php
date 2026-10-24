@@ -13,6 +13,7 @@ namespace Fagathe\CorePhp\Utils;
 use Fagathe\CorePhp\Logger\Logger;
 use Fagathe\CorePhp\Enum\LoggerLevelEnum;
 use Fagathe\CorePhp\Http\Cookie;
+use Fagathe\CorePhp\Http\RequestFactory;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Bundle\SecurityBundle\Security;
 
@@ -37,7 +38,7 @@ class IPChecker
 
     public function __construct(?Security $security = null)
     {
-        $this->request = Request::createFromGlobals();
+        $this->request = RequestFactory::fromGlobals();
         $this->security = $security;
         $this->logger = new Logger(self::LOG_FILE, $security, false);
     }

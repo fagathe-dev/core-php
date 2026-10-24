@@ -21,6 +21,7 @@ namespace Fagathe\CorePhp\Utils;
 use Detection\MobileDetect;
 use Fagathe\CorePhp\Enum\BrowserEnum;
 use Fagathe\CorePhp\Enum\DeviceEnum;
+use Fagathe\CorePhp\Http\RequestFactory;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -34,7 +35,7 @@ class DetectDevice
     public function __construct(
     ) {
         $this->detect = new MobileDetect();
-        $this->request = Request::createFromGlobals();
+        $this->request = RequestFactory::fromGlobals();
         $this->initializeDetector();
     }
 

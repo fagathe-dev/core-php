@@ -7,6 +7,7 @@ use Fagathe\CorePhp\Enum\LoggerLevelEnum;
 use Fagathe\CorePhp\Trait\DatetimeTrait;
 use Fagathe\CorePhp\Utils\DetectDevice;
 use Fagathe\CorePhp\Utils\IPChecker;
+use Fagathe\CorePhp\Http\RequestFactory;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Bundle\SecurityBundle\Security;
 
@@ -43,15 +44,9 @@ final class Logger extends JsonLogService
 
         parent::__construct($logFilePath);
 
-        // Gestion sécurisée de la création de Request pour éviter les FileNotFoundException
-        // lors des uploads de fichiers temporaires
-        try {
-            $this->request = Request::createFromGlobals();
-        } catch (\Symfony\Component\HttpFoundation\File\Exception\FileNotFoundException $e) {
-            // Si un fichier temporaire n'existe plus (après upload), on crée une request vide
-            // pour éviter de casser le logging
-            $this->request = new Request();
-        }
+        // Sans les fichiers uploadés : évite la FileNotFoundException quand un fichier temporaire
+        // a déjà été déplacé, tout en conservant les en-têtes (IP, User-Agent…) du contexte de log
+        $this->request = RequestFactory::fromGlobals();
     }
 
     /**
@@ -190,7 +185,6 @@ final class Logger extends JsonLogService
 
             // Sauvegarde le log
             $this->save($log);
-
         } catch (\Throwable $e) {
             // En cas d'erreur du logger lui-même, on utilise error_log de PHP
             error_log('Logger Error: ' . $e->getMessage());
