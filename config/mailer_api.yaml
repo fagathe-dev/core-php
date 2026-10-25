@@ -1,0 +1,20 @@
+# Client du microservice API Mailer (Fagathe\CorePhp\Mailer\*).
+#
+# Variables d'environnement lues dans le projet hôte :
+#   API_MAILER_BASE_URL    URL de base du mailer
+#   API_MAILER_SECRET_KEY  Jeton Bearer de l'application (à mettre dans .env.local ou le vault)
+#
+# Les deux utilisent le processeur "default::" pour que cache:clear ne casse pas dans un
+# projet qui ne les a pas encore définies ; l'absence est détectée à l'appel
+# (MailerConfigurationException).
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  Fagathe\CorePhp\Mailer\MailerApiClient:
+    arguments:
+      $baseUri: "%env(default::API_MAILER_BASE_URL)%"
+      $apiToken: "%env(default::API_MAILER_SECRET_KEY)%"
+
+  Fagathe\CorePhp\Mailer\MailerClientInterface: '@Fagathe\CorePhp\Mailer\MailerApiClient'

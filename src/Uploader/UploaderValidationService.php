@@ -15,11 +15,15 @@ class UploaderValidationService
     private int $maxSize;
 
     public function __construct(
-        array $allowedMimeTypes = UPLOAD_SUPPORTED_MIMES,
-        int $maxSize = UPLOAD_MAX_FILESIZE
+        ?array $allowedMimeTypes = null,
+        ?int $maxSize = null,
     ) {
-        $this->allowedMimeTypes = $allowedMimeTypes;
-        $this->maxSize = $maxSize;
+        $this->allowedMimeTypes = $allowedMimeTypes
+            ?? (class_exists(\Fagathe\CorePhp\File\MimeType::class) && method_exists(\Fagathe\CorePhp\File\MimeType::class, 'getSupportedMimetypes')
+                ? \Fagathe\CorePhp\File\MimeType::getSupportedMimetypes()
+                : (defined('UPLOAD_SUPPORTED_MIMES') ? UPLOAD_SUPPORTED_MIMES : []));
+
+        $this->maxSize = $maxSize ?? (defined('UPLOAD_MAX_FILESIZE') ? (int) UPLOAD_MAX_FILESIZE : 52428800);
     }
 
     /**

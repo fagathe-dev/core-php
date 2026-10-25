@@ -35,17 +35,20 @@ final class Logger extends JsonLogService
     public function __construct(
         string $file,
         private readonly ?Security $security = null,
-        private readonly bool $logIP = true
+        private readonly bool $logIP = true,
+        ?string $logsDir = null,
     ) {
-        // Charger le chemin complet du fichier : LOGS_DIR . $file . DateTime::format('d-m-Y') . '.json'
+        $resolvedLogsDir = $logsDir ?? (defined('LOGS_DIR') ? (string) LOGS_DIR : null);
+        if ($resolvedLogsDir === null) {
+            throw new \RuntimeException('Logs directory must be provided via $logsDir or LOGS_DIR constant.');
+        }
+
         $this->logFile = $file;
         $dateStr = $this->formatDateTime('d-m-Y');
-        $logFilePath = LOGS_DIR . '/' . $file . '-' . $dateStr . '.json';
+        $logFilePath = rtrim($resolvedLogsDir, '/\\') . '/' . $file . '-' . $dateStr . '.json';
 
         parent::__construct($logFilePath);
 
-        // Sans les fichiers uploadés : évite la FileNotFoundException quand un fichier temporaire
-        // a déjà été déplacé, tout en conservant les en-têtes (IP, User-Agent…) du contexte de log
         $this->request = RequestFactory::fromGlobals();
     }
 

@@ -1,0 +1,14 @@
+# Paramètres du Logger JSON (Fagathe\CorePhp\Logger\*).
+parameters:
+  core_php.logger.logs_dir: "%kernel.project_dir%/logs/"
+  core_php.logger.retention_delay: 30 # jours
+
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  Fagathe\CorePhp\Logger\JsonLoggerRotation:
+    arguments:
+      $logsDir: "%core_php.logger.logs_dir%"
+      $retentionDelay: "%core_php.logger.retention_delay%"

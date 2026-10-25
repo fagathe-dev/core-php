@@ -1,0 +1,5 @@
+# config/my_email.yaml
+parameters:
+  core_php.email.default_logo_path: "images/logo.webp"
+  core_php.email.default_sender: "%env(default::DEFAULT_EMAIL_SENDER)%"
+  core_php.email.logo_path: "%env(default:core_php.email.default_logo_path:LOGO_PATH)%"

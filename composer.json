@@ -1,7 +1,7 @@
 {
   "name": "fagathe-dev/core-php",
   "description": "Librairie PHP Core et Sécurité",
-  "type": "library",
+  "type": "symfony-bundle",
   "autoload": {
     "psr-4": {
       "Fagathe\\CorePhp\\": "src/"
@@ -10,6 +10,11 @@
       "files/functions.php",
       "files/constants.php"
     ]
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Fagathe\\CorePhp\\Tests\\": "tests/"
+    }
   },
   "require": {
     "php": ">=8.4",
@@ -27,6 +32,15 @@
     "fakerphp/faker": "^1.24",
     "mobiledetect/mobiledetectlib": "^4.8",
     "symfony/twig-bridge": "^8.1",
-    "twig/twig": "^3.24"
+    "twig/twig": "^3.24",
+    "symfony/http-kernel": "^7.4|^8.0",
+    "symfony/dependency-injection": "^7.4|^8.0",
+    "symfony/config": "^7.4|^8.0",
+    "symfony/yaml": "^7.4|^8.0",
+    "symfony/http-client": "^7.4|^8.0",
+    "symfony/http-client-contracts": "^3.5"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "^13.4"
   }
 }

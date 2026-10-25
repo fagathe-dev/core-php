@@ -1,0 +1,22 @@
+# config/my_uploader.yaml
+parameters:
+  core_php.uploader.public_dir: "public"
+  core_php.uploader.upload_dir: "uploads"
+  core_php.uploader.max_filesize: 52428800 # 50 Mo, en octets
+  core_php.uploader.rename_file: true
+
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  Fagathe\CorePhp\Uploader\UploaderService:
+    arguments:
+      $projectDir: "%kernel.project_dir%"
+      $publicDir: "%core_php.uploader.public_dir%"
+      $uploadDir: "%core_php.uploader.upload_dir%"
+      $renameFile: "%core_php.uploader.rename_file%"
+
+  Fagathe\CorePhp\Uploader\UploaderValidationService:
+    arguments:
+      $maxSize: "%core_php.uploader.max_filesize%"
