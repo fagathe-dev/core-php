@@ -13,14 +13,20 @@
 
 ## Configuration requise
 
-Définir les constantes suivantes (ex. dans un fichier `constants.php`) :
+Aucune : `UploaderService` et `UploaderValidationService` sont déclarés par `CorePhpBundle` ([config/my_uploader.yaml](../../config/my_uploader.yaml)) et s'injectent directement.
 
-```php
-define('PUBLIC_DIR', 'public');
-define('UPLOAD_DIR', 'uploads');
-define('UPLOAD_SUPPORTED_MIMES', ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']);
-define('UPLOAD_MAX_FILESIZE', 5 * 1024 * 1024); // 5 Mo
+Pour changer les valeurs par défaut, surcharger les paramètres dans le projet hôte :
+
+```yaml
+# config/services.yaml
+parameters:
+    core_php.uploader.public_dir: 'public'
+    core_php.uploader.upload_dir: 'uploads'
+    core_php.uploader.max_filesize: 5242880 # 5 Mo
+    core_php.uploader.rename_file: true
 ```
+
+Les constantes `PUBLIC_DIR`, `UPLOAD_DIR`, `UPLOAD_MAX_FILESIZE`… sont dépréciées. Voir [docs/uploader.md](../../docs/uploader.md) pour le détail.
 
 ---
 

@@ -11,32 +11,40 @@ Upload de fichiers vers le dossier `public/`, avec validation MIME/taille, sécu
 | `UploadResult` | DTO contenant les métadonnées du fichier uploadé |
 | `FileUploadException` | Exception levée en cas d'échec d'upload |
 
-## Prérequis
+## Configuration
 
-Les constantes suivantes doivent être définies :
+Les deux services sont déclarés par le bundle (`CorePhpBundle`, fichier [config/my_uploader.yaml](../config/my_uploader.yaml)) : il suffit de les injecter, aucune déclaration dans `config/services.yaml` n'est nécessaire.
 
-```php
-define('PUBLIC_DIR', 'public');           // Nom du dossier public (défaut si absent)
-define('UPLOAD_DIR', 'uploads');          // Dossier racine des uploads dans public/
-define('UPLOAD_SUPPORTED_MIMES', [...]);  // Tableau de types MIME autorisés
-define('UPLOAD_MAX_FILESIZE', 5242880);   // Taille max en octets (ici 5 Mo)
+> Le bundle est enregistré automatiquement par Flex (`"type": "symfony-bundle"`). Sinon, l'ajouter à la main dans `config/bundles.php` :
+> `Fagathe\CorePhp\CorePhpBundle::class => ['all' => true],`
+
+### Paramètres
+
+| Paramètre | Défaut | Rôle |
+|---|---|---|
+| `core_php.uploader.public_dir` | `public` | Dossier public, relatif à `%kernel.project_dir%` |
+| `core_php.uploader.upload_dir` | `uploads` | Dossier racine des uploads dans le dossier public |
+| `core_php.uploader.max_filesize` | `52428800` (50 Mo) | Taille max en octets, utilisée par `UploaderValidationService` |
+| `core_php.uploader.rename_file` | `true` | Ajoute un suffixe unique (`uniqid()`) au nom du fichier |
+
+Les types MIME autorisés par défaut viennent de `MimeType::getSupportedMimetypes()` (voir [docs/file.md](file.md)) ; ils ne sont pas paramétrables en YAML, utiliser `setAllowedMimeTypes()`.
+
+Pour changer une valeur, surcharger le paramètre dans le projet hôte :
+
+```yaml
+# config/services.yaml
+parameters:
+    core_php.uploader.upload_dir: 'media'
+    core_php.uploader.max_filesize: 10485760 # 10 Mo
 ```
+
+### Constantes legacy
+
+Les constantes `PUBLIC_DIR`, `UPLOAD_DIR`, `UPLOAD_MAX_FILESIZE`, `UPLOAD_RENAME_FILE` et `UPLOAD_SUPPORTED_MIMES` de `files/constants.php` sont **dépréciées**. Elles ne servent plus que de valeurs de repli quand les services sont instanciés hors du conteneur Symfony (argument laissé à `null`).
 
 ---
 
 ## UploaderService
-
-### Configuration via Symfony DI
-
-```yaml
-# config/services.yaml
-services:
-    Fagathe\CorePhp\Uploader\UploaderService:
-        arguments:
-            $security:   '@security.helper'
-            $slugger:    '@slugger'
-            $projectDir: '%kernel.project_dir%'
-```
 
 ### Upload d'un fichier
 
@@ -70,6 +78,17 @@ class UserController
 }
 ```
 
+### Nommage des fichiers
+
+Le nom d'origine est toujours « sluggifié » et mis en minuscules, puis :
+
+| `rename_file` | Fichier `Ma Photo.JPG` |
+|---|---|
+| `true` (défaut) | `ma-photo-6673abc12.jpg` |
+| `false` | `ma-photo.jpg` |
+
+> ⚠️ Avec `rename_file: false`, un fichier du même nom déjà présent dans le dossier est **écrasé**.
+
 ### Remplacer un fichier existant
 
 ```php
@@ -85,6 +104,19 @@ $this->uploader->delete($user->getAvatar());
 // Ex: supprime public/uploads/avatars/alice-6673abc12.jpg
 ```
 
+### Instanciation hors Symfony DI
+
+```php
+$uploader = new UploaderService(
+    security:   $security,
+    slugger:    $slugger,
+    projectDir: '/var/www/app',
+    publicDir:  'public',   // null → constante PUBLIC_DIR, sinon 'public'
+    uploadDir:  'uploads',  // null → constante UPLOAD_DIR, sinon 'uploads'
+    renameFile: true,       // null → constante UPLOAD_RENAME_FILE, sinon true
+);
+```
+
 ---
 
 ## UploaderValidationService
@@ -94,17 +126,19 @@ $this->uploader->delete($user->getAvatar());
 ```php
 use Fagathe\CorePhp\Uploader\UploaderValidationService;
 
-$validator = new UploaderValidationService();
-// Utilise UPLOAD_SUPPORTED_MIMES et UPLOAD_MAX_FILESIZE par défaut
+public function __construct(
+    private UploaderValidationService $validator
+) {}
 
-$result = $validator->validate($uploadedFile);
+// Types MIME de MimeType::getSupportedMimetypes() et taille de core_php.uploader.max_filesize
+$result = $this->validator->validate($uploadedFile);
 
 if ($result === true) {
     // Fichier valide → procéder à l'upload
 } else {
     // $result est un tableau d'erreurs
     foreach ($result as $error) {
-        echo $error; // "Taille limite dépassée (5 Mo max)."
+        echo $error; // "Taille limite dépassée (50 Mo max)."
                      // "Format de fichier non supporté."
     }
 }
@@ -113,14 +147,17 @@ if ($result === true) {
 ### Configuration personnalisée
 
 ```php
-$validator = new UploaderValidationService();
-
-$validator
+$this->validator
     ->setAllowedMimeTypes(['image/jpeg', 'image/png', 'image/webp'])
     ->setMaxSize(2 * 1024 * 1024); // 2 Mo
 
-$result = $validator->validate($file);
+$result = $this->validator->validate($file);
 ```
+
+> ⚠️ Le service injecté est partagé : les setters modifient l'instance pour le reste de la requête. Si plusieurs règles coexistent dans une même requête, utiliser une instance dédiée :
+> `new UploaderValidationService(['image/jpeg', 'image/png'], 2 * 1024 * 1024)`
+
+Hors conteneur, `new UploaderValidationService()` sans argument utilise `MimeType::getSupportedMimetypes()` et la constante `UPLOAD_MAX_FILESIZE` (50 Mo si absente).
 
 ---
 
@@ -144,6 +181,11 @@ $result->extension;      // "jpg"
 ## Workflow complet recommandé
 
 ```php
+public function __construct(
+    private UploaderService $uploader,
+    private UploaderValidationService $validator,
+) {}
+
 public function upload(Request $request): Response
 {
     $file = $request->files->get('document');
@@ -153,8 +195,7 @@ public function upload(Request $request): Response
     }
 
     // 1. Valider
-    $validator = new UploaderValidationService();
-    $validation = $validator->validate($file);
+    $validation = $this->validator->validate($file);
 
     if ($validation !== true) {
         return $this->sendJson(['errors' => $validation], 422);
