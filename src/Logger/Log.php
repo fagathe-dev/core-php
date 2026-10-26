@@ -236,6 +236,11 @@ final class Log
      */
     private function sanitize(mixed $data, ?string $keyName = null): mixed
     {
+        // 0. Une exception est convertie en tableau (message, fichier, stack trace) avant nettoyage
+        if ($data instanceof \Throwable) {
+            $data = ThrowableNormalizer::normalize($data);
+        }
+
         // 1. Si c'est un tableau, on récursive (parcours en profondeur)
         if (is_array($data)) {
             foreach ($data as $key => $value) {

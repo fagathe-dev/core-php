@@ -4,6 +4,7 @@ namespace Fagathe\CorePhp\Trait;
 
 use Fagathe\CorePhp\Logger\Logger;
 use Fagathe\CorePhp\Enum\LoggerLevelEnum;
+use Symfony\Bundle\SecurityBundle\Security;
 
 /**
  * Trait pour la gestion centralisée du Logger (journalisation).
@@ -32,8 +33,11 @@ trait LoggerTrait
         // Générer automatiquement le filename si non fourni
         $filename = $customFilename ?? $this->generateServiceLogFilename();
 
+        // La classe hôte n'est pas obligée de déclarer $security (évite un warning "Undefined property")
+        $security = $this->security ?? null;
+
         // Créer le Logger à la volée avec le fichier spécifique
-        $logger = new Logger($filename, $this->security, true);
+        $logger = new Logger($filename, $security instanceof Security ? $security : null, true);
         $logger->log($level, $content, $context);
     }
 

@@ -186,13 +186,21 @@ final class LoggerTemplate
         }
 
         if ($this->log->hasContent('exception')) {
+            $exception = $this->log->getContent('exception');
+
             $this->addHTML('<div class="mb-3">');
             $this->addHTML('<p class="' . $titleClass . '">Exception :</p>');
-            $this->addHTML('<div class="alert alert-danger border rounded mb-0">');
-            $this->addHTML('<pre class="mb-0 text-wrap"><code>' .
-                htmlspecialchars($this->formatJson($this->log->getContent('exception'))) .
-                '</code></pre>');
-            $this->addHTML('</div>');
+
+            if ($this->isNormalizedException($exception)) {
+                $this->generateExceptionDetails($exception);
+            } else {
+                $this->addHTML('<div class="alert alert-danger border rounded mb-0">');
+                $this->addHTML('<pre class="mb-0 text-wrap"><code>' .
+                    htmlspecialchars($this->formatJson($exception)) .
+                    '</code></pre>');
+                $this->addHTML('</div>');
+            }
+
             $this->addHTML('</div>');
         }
 
@@ -446,6 +454,52 @@ final class LoggerTemplate
             '<i class="ri-global-line text-info me-1" title="IP Publique"></i>' .
             '<span class="font-monospace small">' . htmlspecialchars($ip) . '</span>' .
             '</span>';
+    }
+
+    /**
+     * Exception enregistrée via ThrowableNormalizer (et non un simple message).
+     */
+    private function isNormalizedException(mixed $exception): bool
+    {
+        return is_array($exception) && isset($exception['class'], $exception['message']) && is_array($exception['trace'] ?? null);
+    }
+
+    /**
+     * Message, emplacement et stack trace d'une exception normalisée (et de ses exceptions précédentes).
+     */
+    private function generateExceptionDetails(array $exception): void
+    {
+        $this->addHTML('<div class="alert alert-danger border rounded mb-2">');
+        $this->addHTML('<p class="mb-1"><strong>' . htmlspecialchars((string) $exception['class']) . '</strong></p>');
+        $this->addHTML('<p class="mb-1 text-wrap">' . nl2br(htmlspecialchars((string) $exception['message'])) . '</p>');
+        $this->addHTML('<small class="font-monospace text-break">' .
+            htmlspecialchars((string) ($exception['file'] ?? '?')) . ':' . (int) ($exception['line'] ?? 0) .
+            '</small>');
+        $this->addHTML('</div>');
+
+        if ($exception['trace'] !== []) {
+            $this->addHTML('<details class="mb-2"><summary class="text-muted small">Stack trace (' . count($exception['trace']) . ' appels)</summary>');
+            $this->addHTML('<ol class="small font-monospace mb-0 mt-2 ps-4" start="0">');
+
+            foreach ($exception['trace'] as $frame) {
+                $call = htmlspecialchars(($frame['class'] ?? '') . ($frame['type'] ?? '') . ($frame['function'] ?? '') . '()');
+                $location = isset($frame['file'])
+                    ? htmlspecialchars((string) $frame['file']) . ':' . (int) ($frame['line'] ?? 0)
+                    : '[interne]';
+                $this->addHTML('<li class="text-break mb-1">' . $call . '<br><span class="text-muted">' . $location . '</span></li>');
+            }
+
+            if (!empty($exception['truncated_frames'])) {
+                $this->addHTML('<li class="text-muted list-unstyled">… ' . (int) $exception['truncated_frames'] . ' appel(s) non conservé(s)</li>');
+            }
+
+            $this->addHTML('</ol></details>');
+        }
+
+        if ($this->isNormalizedException($exception['previous'] ?? null)) {
+            $this->addHTML('<p class="small text-muted mb-1">Causée par :</p>');
+            $this->generateExceptionDetails($exception['previous']);
+        }
     }
 
     private function formatJson(mixed $data): string

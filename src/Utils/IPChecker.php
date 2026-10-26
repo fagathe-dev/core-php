@@ -32,6 +32,12 @@ class IPChecker
         'https://ipapi.co/ip/'
     ];
 
+    /** Durée de mise en cache mémoire d'un échec de résolution (évite de relancer les appels API à chaque log). */
+    private const FAILURE_CACHE_SECONDS = 60;
+
+    /** @var array<string, array{ip: string, expires_at: int}> IP publique résolue, par IP locale du client */
+    private static array $memoryCache = [];
+
     private Request $request;
     private Logger $logger;
     private ?Security $security = null;
@@ -52,6 +58,23 @@ class IPChecker
     }
 
     public function getIp(): string
+    {
+        // 0. Cache mémoire du processus (le cookie n'est pas renvoyé par les clients API / cross-origin)
+        $cacheKey = $this->getLocalIp();
+        $cached = self::$memoryCache[$cacheKey] ?? null;
+        if ($cached !== null && $cached['expires_at'] > time()) {
+            return $cached['ip'];
+        }
+
+        $ipAddress = $this->resolveIp();
+
+        $ttl = $ipAddress === 'unknown IP address' ? self::FAILURE_CACHE_SECONDS : self::CACHE_DURATION_MINUTES * 60;
+        self::$memoryCache[$cacheKey] = ['ip' => $ipAddress, 'expires_at' => time() + $ttl];
+
+        return $ipAddress;
+    }
+
+    private function resolveIp(): string
     {
         // 1. Tentative via Cache Cookie (AUCUN LOG)
         if (Cookie::has(self::IP_COOKIE_NAME)) {
@@ -310,6 +333,7 @@ class IPChecker
             setcookie(self::IP_COOKIE_NAME, '', time() - 3600, '/');
             unset($_COOKIE[self::IP_COOKIE_NAME]);
         }
+        unset(self::$memoryCache[$this->getLocalIp()]);
         return $this->getUserIPv4();
     }
 

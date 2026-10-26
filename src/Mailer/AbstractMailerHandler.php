@@ -212,10 +212,12 @@ abstract class AbstractMailerHandler
         ];
 
         if (null !== $e) {
-            $content['exception'] = $e->getMessage();
+            // Normalisé par le Logger (message, fichier, stack trace)
+            $content['exception'] = $e;
         }
 
-        $this->generateLog($level, $content, ['action' => $action, 'uid' => $this->defaultContext['app_name'] ?? null]);
+        // uid est renseigné par le Logger avec l'utilisateur connecté
+        $this->generateLog($level, $content, ['action' => $action]);
     }
 
     private static function resolveLogoUrl(?string $logoPath, ?string $appUri): ?string

@@ -32,6 +32,12 @@ final class Logger extends JsonLogService
     public const LOG_CONTEXT = '__journal_log_context';
     public const LOG_UUID = '__journal_log_uuid';
 
+    /** Nombre maximum de user agents mémorisés (processus longs : FrankenPHP worker, RoadRunner…). */
+    private const DEVICE_CACHE_SIZE = 50;
+
+    /** @var array<string, array{device: string, browser: string}> */
+    private static array $deviceCache = [];
+
     public function __construct(
         string $file,
         private readonly ?Security $security = null,
@@ -223,10 +229,19 @@ final class Logger extends JsonLogService
             // User Agent pour détection du device/browser uniquement
             $userAgent = $this->request->headers->get('User-Agent');
             if ($userAgent) {
-                // Détection avancée avec les nouveaux services
-                $deviceInfo = $this->detectDevice->getDeviceInfo();
-                $context['device'] = $deviceInfo['device'];
-                $context['browser'] = $deviceInfo['browser'];
+                // Détection avancée, mémorisée par user agent (une seule analyse par requête / processus)
+                if (!isset(self::$deviceCache[$userAgent])) {
+                    if (\count(self::$deviceCache) >= self::DEVICE_CACHE_SIZE) {
+                        self::$deviceCache = [];
+                    }
+                    $deviceInfo = $this->detectDevice->getDeviceInfo();
+                    self::$deviceCache[$userAgent] = [
+                        'device' => $deviceInfo['device'],
+                        'browser' => $deviceInfo['browser'],
+                    ];
+                }
+                $context['device'] = self::$deviceCache[$userAgent]['device'];
+                $context['browser'] = self::$deviceCache[$userAgent]['browser'];
             }
 
             // URL et méthode de la requête HTTP

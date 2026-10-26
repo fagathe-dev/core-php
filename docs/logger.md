@@ -61,6 +61,36 @@ $logger->info(
 
 > Les clés sensibles (`password`, `token`, `secret`, `api_key`…) sont automatiquement masquées dans le log.
 
+### Exceptions et stack trace
+
+Passez l'exception elle-même (et non `$e->getMessage()`) : elle est convertie par `ThrowableNormalizer`.
+
+```php
+try {
+    // ...
+} catch (\Throwable $e) {
+    $logger->error(['message' => 'Échec de la commande', 'exception' => $e]);
+}
+```
+
+```json
+"exception": {
+    "class": "Symfony\\Component\\Mime\\Exception\\LogicException",
+    "message": "An email must have a \"From\" or a \"Sender\" header.",
+    "code": 0,
+    "file": "vendor/symfony/mime/Message.php",
+    "line": 132,
+    "trace": [
+        { "file": "vendor/symfony/mime/Email.php", "line": 399, "class": "Symfony\\Component\\Mime\\Message", "type": "->", "function": "ensureValidity" }
+    ],
+    "previous": { "...": "exception précédente (getPrevious()), 5 niveaux max" }
+}
+```
+
+- Chemins relatifs à `PROJECT_DIR`, 50 frames maximum (`truncated_frames` indique le nombre de frames coupées).
+- Les arguments des appels ne sont jamais enregistrés (données sensibles, volume).
+- Une chaîne (`'exception' => $e->getMessage()`) reste acceptée et enregistrée telle quelle.
+
 ---
 
 ## Enrichissement automatique
@@ -79,6 +109,12 @@ $logger = new Logger('orders', $security, logIP: true);
 // Sans log de l'IP
 $logger = new Logger('orders', logIP: false);
 ```
+
+### Performances
+
+- **Écriture** : chaque log est ajouté en fin de tableau JSON sous verrou exclusif (`flock`), sans relire le fichier. Le fichier produit est identique à une réécriture complète ; un fichier qui n'est pas un tableau JSON est réécrit comme avant.
+- **IP publique** : résolue une fois puis mémorisée dans le processus, par IP cliente (15 min, 1 min en cas d'échec), en plus du cookie `__ffr_v4` que les clients API / cross-origin ne renvoient pas.
+- **Appareil / navigateur** : analysés une fois par user agent.
 
 ---
 
