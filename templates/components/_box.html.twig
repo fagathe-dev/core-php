@@ -1,0 +1,14 @@
+{# Props: background, padding, radius, content, custom_style #}
+{% set background = background|default('#ffffff') %}
+{% set padding = padding|default('20px') %}
+{% set radius = radius|default('0px') %}
+{% set content = content|default('') %}
+{% set custom_style = custom_style|default('') %}
+
+<table width="100%" cellpadding="0" cellspacing="0" style="font-family: 'Roboto', sans-serif; margin: 0; {{ custom_style }}">
+  <tr>
+    <td style="font-family: 'Roboto', sans-serif; background-color: {{ background }}; padding: {{ padding }}; border-radius: {{ radius }};">
+      {{ content|raw }}
+    </td>
+  </tr>
+</table>

@@ -1,257 +1,256 @@
 # Mailer
 
-Client HTTP du microservice **API Mailer** : envoi d'e-mails à partir de modèles prédéfinis (confirmation de compte, OTP, reset de mot de passe…), avec payloads typés, validation côté client et exceptions exploitables.
+Socle **agnostique** d'envoi d'e-mails transactionnels au-dessus de Symfony Mailer : une classe abstraite qui gère l'envoi, les logs et les exceptions, plus un layout et des composants Twig réutilisables.
 
-> Ce module n'envoie pas les e-mails lui-même (pas de Symfony Mailer / SMTP) : il appelle l'API Mailer, qui rend le modèle et l'envoie.
+> core-php ne définit **aucun** e-mail. Chaque projet déclare les siens (DTO, handler, template) : le récapitulatif de contact du portfolio vit dans le portfolio.
 
-## Classes
+## Contenu du module
 
-| Classe | Rôle |
+| Élément | Rôle |
 |---|---|
-| `MailerClientInterface` | Contrat du client, à type-hinter pour l'autowiring |
-| `MailerApiClient` | Implémentation HTTP (jeton Bearer) |
-| `EmailType` | Enum des modèles d'e-mails acceptés par l'API |
-| `Payload\*Payload` | Données typées d'un modèle (un payload par `EmailType`) |
-| `Response\SendEmailResponse` | Réponse de l'envoi |
-| `Response\HealthCheckResponse` | Réponse du health-check |
-| `Exception\*` | Exceptions du module (toutes implémentent `MailerExceptionInterface`) |
+| `Mailer\AbstractMailerHandler` | Base d'un handler : validation du DTO, contrôle des destinataires, expéditeur et contexte par défaut, envoi, logs, exceptions |
+| `Mailer\EmailDeliverabilityChecker` | Vérifie (DNS MX / A) que le domaine du destinataire reçoit des e-mails |
+| `Mailer\Exception\*` | Exceptions du module, toutes `MailerExceptionInterface` |
+| `templates/layout.html.twig` | Layout HTML générique (`@CorePhp/layout.html.twig`) |
+| `templates/components/_*.html.twig` | Composants (`@CorePhp/components/…`) |
+| `config/my_email.yaml` | Paramètres `core_php.email.*` |
+
+Prérequis dans le projet hôte : `symfony/mailer` configuré (`MAILER_DSN`), `symfony/twig-bundle`, `symfony/validator` (optionnel mais recommandé).
 
 ## Configuration
 
-Le client est déclaré par le bundle (`CorePhpBundle`, fichier [config/mailer_api.yaml](../config/mailer_api.yaml)). Il nécessite un service `HttpClientInterface` (fourni par FrameworkBundle avec `symfony/http-client`).
+Toutes les variables sont optionnelles ; une valeur absente masque l'élément correspondant.
 
-Variables d'environnement à définir dans le projet hôte :
+| Variable d'environnement | Paramètre | Effet |
+|---|---|---|
+| `APP_NAME` | `core_php.email.app_name` | Nom de l'expéditeur, pied de page (`app_name`) |
+| `DEFAULT_EMAIL_SENDER` | `core_php.email.default_sender` | Adresse d'expédition par défaut |
+| `DEFAULT_URI` | `core_php.email.app_uri` | URL de l'application, pour rendre le logo absolu |
+| `LOGO_PATH` | `core_php.email.logo_path` | Chemin du logo (relatif à `DEFAULT_URI`) ou URL absolue ; défaut `images/logo.webp` |
+| `SUPPORT_EMAIL` | `core_php.email.support_email` | Bloc « Besoin d'aide ? » du pied de page |
+| — | `core_php.email.check_deliverability` | `true` par défaut ; `false` pour couper le contrôle DNS (tests, hors ligne) |
 
-| Variable | Rôle |
-|---|---|
-| `API_MAILER_BASE_URL` | URL de base de l'API Mailer (ex. `https://mailer.example.com`) |
-| `API_MAILER_SECRET_KEY` | Jeton Bearer de l'application |
-
-```dotenv
-# .env
-API_MAILER_BASE_URL=https://mailer.example.com
-
-# .env.local (ou secrets:set) — ne jamais commiter le jeton
-API_MAILER_SECRET_KEY=xxxxxxxx
+```yaml
+# config/services.yaml du projet hôte
+when@test:
+    parameters:
+        core_php.email.check_deliverability: false
 ```
-
-Les deux variables sont optionnelles au moment de la compilation du conteneur (`cache:clear` ne casse pas si elles manquent). Leur absence n'est détectée qu'au premier appel, par une `MailerConfigurationException`, **avant** toute requête HTTP.
 
 ---
 
-## Envoyer un e-mail
+## Créer un e-mail dans le projet hôte
+
+Un e-mail = un **DTO** (les données), un **handler** (la description de l'e-mail), un **template**.
+
+### 1. DTO
 
 ```php
-use Fagathe\CorePhp\Mailer\MailerClientInterface;
-use Fagathe\CorePhp\Mailer\Payload\AuthConfirmationPayload;
+// src/Mail/Dto/ContactRecapDto.php
+namespace App\Mail\Dto;
 
-class RegistrationService
+use Symfony\Component\Validator\Constraints as Assert;
+
+final readonly class ContactRecapDto
 {
     public function __construct(
-        private MailerClientInterface $mailer
+        #[Assert\NotBlank, Assert\Email]
+        public string $email,
+        #[Assert\NotBlank]
+        public string $fullName,
+        #[Assert\Length(min: 10, max: 2000)]
+        public string $message,
+        public ?string $subjectLabel = null,
+    ) {}
+}
+```
+
+Les contraintes sont vérifiées avant l'envoi (`InvalidEmailDataException`).
+
+### 2. Handler
+
+```php
+// src/Mail/ContactRecapHandler.php
+namespace App\Mail;
+
+use App\Mail\Dto\ContactRecapDto;
+use Fagathe\CorePhp\Mailer\AbstractMailerHandler;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\Mime\Address;
+
+/**
+ * @extends AbstractMailerHandler<ContactRecapDto>
+ */
+final class ContactRecapHandler extends AbstractMailerHandler
+{
+    // Le constructeur est libre : les dépendances du socle sont injectées à part.
+    public function __construct(
+        #[Autowire('%env(MAILER_OWNER_ADDRESS)%')]
+        private readonly string $ownerEmail,
     ) {}
 
-    public function sendConfirmation(User $user, string $url): void
+    protected function getTemplate(): string
     {
-        $response = $this->mailer->send(new AuthConfirmationPayload(
-            email: $user->getEmail(),
-            username: $user->getUsername(),
-            confirmationUrl: $url, // doit commencer par https://
-        ));
+        return 'emails/contact_recap.html.twig';
+    }
 
-        $response->isSuccess(); // true
-        $response->message;     // "E-mail envoyé avec succès."
+    protected function getSubject(object $dto): string
+    {
+        return 'Votre message a bien été reçu';
+    }
+
+    protected function getRecipients(object $dto): array
+    {
+        return [new Address($dto->email, $dto->fullName)];
+    }
+
+    // Optionnel : ['dto' => $dto] par défaut. Ne pas utiliser la clé "email" (réservée par Symfony).
+    protected function getContext(object $dto): array
+    {
+        return ['dto' => $dto, 'submittedAt' => new \DateTimeImmutable()];
+    }
+
+    // Optionnel : aucun Reply-To par défaut.
+    protected function getReplyTo(object $dto): ?Address
+    {
+        return new Address($this->ownerEmail);
     }
 }
 ```
 
-L'envoi est **synchrone** : un succès signifie que le serveur SMTP a accepté l'e-mail.
+| Méthode | Obligatoire | Défaut |
+|---|---|---|
+| `getTemplate()` | oui | — |
+| `getSubject($dto)` | oui | — |
+| `getRecipients($dto)` | oui | — (`Address` ou chaîne) |
+| `getContext($dto)` | non | `['dto' => $dto]` |
+| `getReplyTo($dto)` | non | aucun |
+| `getFrom($dto)` | non | `core_php.email.default_sender`, au nom de `core_php.email.app_name` |
 
-Requête envoyée : `POST {API_MAILER_BASE_URL}/api/emails/send`
+Le handler est un service autowiré du projet hôte : rien à déclarer. Ses dépendances de base (mailer, validator, paramètres) arrivent par `setMailerDependencies()` (`#[Required]`).
 
-```json
-{
-    "type": "auth_confirmation",
-    "data": {
-        "email": "jane.doe@gmail.com",
-        "username": "jane",
-        "confirmationUrl": "https://app.example.com/confirm/abc"
-    }
-}
+### 3. Template
+
+```twig
+{# templates/emails/contact_recap.html.twig #}
+{% extends '@CorePhp/layout.html.twig' %}
+
+{% block content %}
+  {% include '@CorePhp/components/_text.html.twig' with {
+    level: 'h1',
+    content: 'Merci ' ~ (dto.fullName|e) ~ ' !'
+  } only %}
+
+  {% include '@CorePhp/components/_box.html.twig' with {
+    content: dto.message|e|nl2br
+  } only %}
+{% endblock %}
 ```
+
+Le contexte contient toujours `app_name`, `logo_url` et `support_email` (lus par le layout), en plus de `getContext()`.
+
+### 4. Envoi
+
+```php
+public function __construct(private ContactRecapHandler $contactRecap) {}
+
+$this->contactRecap->send(new ContactRecapDto(
+    email: $form->email,
+    fullName: $form->fullName,
+    message: $form->message,
+));
+```
+
+`createEmail($dto)` construit l'e-mail sans l'envoyer (prévisualisation, tests).
 
 ---
 
-## Payloads disponibles
+## Layout et composants
 
-Chaque payload valide ses données dans son constructeur et lève une `InvalidPayloadException` si elles sont invalides (aucun appel à l'API n'est fait). Les champs optionnels laissés à `null` ne sont pas envoyés.
+### Layout (`@CorePhp/layout.html.twig`)
 
-| Payload | `EmailType` | Champs obligatoires | Champs optionnels |
-|---|---|---|---|
-| `AuthConfirmationPayload` | `auth_confirmation` | `email`, `username`, `confirmationUrl` (https) | — |
-| `AuthOtpPayload` | `auth_otp` | `email`, `code` (4 à 12 caractères) | `username`, `actionLabel`, `expiresIn` |
-| `AuthResetPasswordPayload` | `auth_reset_password` | `email`, `username`, `resetUrl` | — |
-| `AuthProfileChangeEmailPayload` | `auth_profile_change_email` | `username`, `newEmail`, `confirmationUrl` (https) | — |
-| `AdminAccountCreatedPayload` | `admin_account_created` | `email`, `username`, `plainPassword`, `roles`, `loginUrl` | `changePasswordUrl`, `createdBy` (défaut `dashboard`) |
-| `ContactRecapPayload` | `contact_recap` | `email`, `name`, `subject`, `message` | `senderEmail`, `phone` |
+| Bloc | Contenu par défaut |
+|---|---|
+| `logo` | Logo centré, si `logo_url` est défini |
+| `content` | Corps de l'e-mail (à remplir) |
+| `footer` | « Besoin d'aide ? » si `support_email` est défini, puis © année + `app_name` |
 
-### Exemples
+### Composants (`@CorePhp/components/…`)
 
-```php
-use Fagathe\CorePhp\Mailer\Payload\AuthOtpPayload;
-use Fagathe\CorePhp\Mailer\Payload\AuthProfileChangeEmailPayload;
-use Fagathe\CorePhp\Mailer\Payload\AdminAccountCreatedPayload;
-use Fagathe\CorePhp\Mailer\Payload\ContactRecapPayload;
+À inclure avec `with { … } only`. Tous acceptent `custom_style` (CSS inline ajouté).
 
-// Code OTP : toujours une chaîne (un nombre JSON est rejeté par l'API)
-$this->mailer->send(new AuthOtpPayload(
-    email: 'jane.doe@gmail.com',
-    code: '482910',
-    username: 'jane',
-    actionLabel: 'Connexion',
-    expiresIn: '10 minutes',
-));
+| Composant | Props |
+|---|---|
+| `_text.html.twig` | `level` (h1–h6, p, small), `content`, `color`, `size`, `align` |
+| `_button.html.twig` | `url`, `label`, `bg_color`, `text_color` |
+| `_alert.html.twig` | `type` (success, danger, warning, info), `title`, `content` |
+| `_box.html.twig` | `content`, `background`, `padding`, `radius` |
+| `_card.html.twig` | `content`, `background`, `padding` |
+| `_section.html.twig` | `content`, `bg_color`, `padding`, `align` |
+| `_link.html.twig` | `url`, `label`, `color` |
+| `_list.html.twig` | `items` (tableau), `bullet_color` |
+| `_divider.html.twig` | `color`, `height` |
 
-// Changement d'e-mail : le destinataire est la NOUVELLE adresse (clé "newEmail")
-$this->mailer->send(new AuthProfileChangeEmailPayload(
-    username: 'jane',
-    newEmail: 'jane.new@gmail.com',
-    confirmationUrl: 'https://app.example.com/profile/confirm-email/abc',
-));
+> ⚠️ `content` est affiché en `|raw` (HTML autorisé). Échapper toute donnée utilisateur avant de la concaténer : `'Bonjour ' ~ (dto.name|e)`, `url|e('html_attr')`.
 
-// Compte créé par un admin : roles accepte une chaîne ou une liste
-$this->mailer->send(new AdminAccountCreatedPayload(
-    email: 'john@example.com',
-    username: 'john',
-    plainPassword: $plainPassword,
-    roles: ['ROLE_USER', 'ROLE_EDITOR'],
-    loginUrl: 'https://app.example.com/login',
-    changePasswordUrl: 'https://app.example.com/profile/password',
-));
+### Surcharger
 
-// Récapitulatif d'un formulaire de contact, envoyé au visiteur
-$this->mailer->send(new ContactRecapPayload(
-    email: $data['email'],
-    name: $data['name'],
-    subject: $data['subject'],
-    message: $data['message'],
-    phone: $data['phone'] ?? null,
-));
-```
-
-### Données sensibles
-
-- `AuthOtpPayload::$code` et `AdminAccountCreatedPayload::$plainPassword` sont marqués `#[\SensitiveParameter]` : ils n'apparaissent pas dans les stack traces.
-- `AdminAccountCreatedPayload` masque le mot de passe dans `var_dump()` / `dump()` (`********`).
-- Le mot de passe part en clair dans l'e-mail : préférer renseigner `changePasswordUrl` pour inviter l'utilisateur à le changer.
-
----
-
-## Health-check
-
-```php
-$health = $this->mailer->healthCheck(); // GET /api/health-check
-
-$health->isOk();     // true si status === "ok"
-$health->service;    // "mailer-app"
-$health->timestamp;  // ?DateTimeImmutable
-```
+Pour adapter le layout ou un composant à un projet : `templates/bundles/CorePhpBundle/layout.html.twig` (ou `…/components/_button.html.twig`).
 
 ---
 
 ## Gestion des erreurs
 
-### Hiérarchie
-
 ```
-MailerExceptionInterface (attraper toutes les erreurs du module)
-├── InvalidPayloadException        données invalides, levée à la construction du payload
-├── MailerConfigurationException   API_MAILER_BASE_URL ou API_MAILER_SECRET_KEY vide
-├── MailerTransportException       API injoignable (DNS, connexion, timeout)
-└── MailerApiException             réponse d'erreur de l'API (code HTTP ≥ 300)
-    ├── MailerAuthenticationException   401 : jeton absent, invalide ou révoqué
-    └── MailerValidationException       422 : données refusées / destinataire injoignable
+MailerExceptionInterface
+├── InvalidEmailDataException       DTO invalide : getViolations() → ['propriété' => 'message']
+├── RecipientUnreachableException   domaine du destinataire injoignable : getRecipientEmail()
+└── EmailSendingException           échec du transport : isRecipientRejected(), isRetryable()
 ```
 
-### Informations exposées par `MailerApiException`
-
-| Méthode | Contenu |
-|---|---|
-| `getStatusCode()` | Code HTTP de la réponse |
-| `getErrorCode()` | Champ `error` de la réponse (ex. `recipient_rejected`) |
-| `getDetails()` | Champ `details` (message technique) |
-| `getViolations()` | Erreurs 422 : `['champ' => 'message']` |
-| `isRetryable()` | `true` si l'erreur est temporaire |
-
-### Quand réessayer ?
-
-| Cas | `isRetryable()` |
-|---|---|
-| 502 (erreur SMTP / transport côté mailer) | `true` |
-| 503 | `true`, sauf `mailer_dsn_not_configured` et `mailer_dsn_invalid` |
-| 401, 422, autres codes | `false` |
-| `MailerTransportException` | `true` ⚠️ |
-
-> ⚠️ Après un timeout, l'e-mail a pu être envoyé malgré tout : réessayer peut créer un doublon.
-
-### Exemple
+Toute autre erreur levée par Symfony Mailer (template introuvable, configuration…) est journalisée puis relancée telle quelle.
 
 ```php
-use Fagathe\CorePhp\Mailer\Exception\InvalidPayloadException;
-use Fagathe\CorePhp\Mailer\Exception\MailerApiException;
-use Fagathe\CorePhp\Mailer\Exception\MailerConfigurationException;
-use Fagathe\CorePhp\Mailer\Exception\MailerTransportException;
-use Fagathe\CorePhp\Mailer\Exception\MailerValidationException;
+use Fagathe\CorePhp\Mailer\Exception\EmailSendingException;
+use Fagathe\CorePhp\Mailer\Exception\InvalidEmailDataException;
+use Fagathe\CorePhp\Mailer\Exception\RecipientUnreachableException;
 
 try {
-    $this->mailer->send(new AuthResetPasswordPayload($email, $username, $resetUrl));
-
-} catch (InvalidPayloadException $e) {
-    // Bug côté appelant : champ vide, URL non https, code OTP de mauvaise longueur…
-
-} catch (MailerValidationException $e) {
-    // 422 : afficher $e->getViolations() ou traiter $e->getErrorCode()
-    //       ("email_recipient_error" / "recipient_rejected")
-
-} catch (MailerApiException|MailerTransportException $e) {
+    $this->contactRecap->send($dto);
+} catch (InvalidEmailDataException $e) {
+    // Bug côté appelant, ou formulaire à revalider : $e->getViolations()
+} catch (RecipientUnreachableException $e) {
+    // Adresse saisie inexploitable : le signaler à l'utilisateur
+} catch (EmailSendingException $e) {
     if ($e->isRetryable()) {
-        // Remettre en file d'attente (Messenger…) plutôt que réessayer en boucle
+        // Serveur indisponible : réessayer plus tard (Messenger…)
     }
-    // Avec LoggerTrait (voir docs/traits.md)
-    $this->generateLog(LoggerLevelEnum::Error, [
-        'message' => 'Échec envoi e-mail',
-        'exception' => $e->getMessage(),
-    ]);
-
-} catch (MailerConfigurationException $e) {
-    // Variable d'environnement manquante : erreur de déploiement
-    throw $e;
+    // Sinon le destinataire a été refusé (SMTP 55x)
 }
 ```
 
----
+> Si `Symfony\Component\Mailer\Messenger\SendEmailMessage` est routé vers un transport asynchrone, `send()` ne fait que mettre l'e-mail en file : les erreurs de transport surviennent dans le worker, pas dans `send()`.
 
-## Tests
+## Logs
 
-Dans les tests du projet hôte, injecter un `MockHttpClient` pour ne pas appeler l'API :
+Via `LoggerTrait` : un fichier par handler, `logs/<dernier segment du namespace>/<handler-en-kebab>-jj-mm-aaaa.json` (ex. `logs/mail/contact-recap-handler-26-10-2026.json`).
+
+| `action` | Niveau | Quand |
+|---|---|---|
+| `mailer.send_success` | info | e-mail envoyé |
+| `mailer.validation_failed` | warning | DTO invalide (violations seulement) |
+| `mailer.recipient_unreachable` | error | domaine injoignable |
+| `mailer.send_error` | error | échec du transport ou autre erreur |
+
+Les logs contiennent le handler, le template, l'objet et les destinataires, **jamais** le contenu du DTO (jetons, mots de passe…).
+
+## Tests dans le projet hôte
+
+Avec `MAILER_DSN=null://null` et `core_php.email.check_deliverability: false`, un `KernelTestCase` / `WebTestCase` peut utiliser les assertions mailer de Symfony :
 
 ```php
-use Fagathe\CorePhp\Mailer\MailerApiClient;
-use Symfony\Component\HttpClient\MockHttpClient;
-use Symfony\Component\HttpClient\Response\JsonMockResponse;
+static::getContainer()->get(ContactRecapHandler::class)->send($dto);
 
-$response = new JsonMockResponse(['status' => 'success', 'message' => 'E-mail envoyé avec succès.']);
-
-$client = new MailerApiClient(
-    new MockHttpClient($response),
-    'https://mailer.test',
-    'test-token',
-);
-
-$client->send(new AuthOtpPayload('jane.doe@gmail.com', '482910'));
-
-$response->getRequestUrl();          // "https://mailer.test/api/emails/send"
-$response->getRequestOptions()['body']; // JSON envoyé
+self::assertEmailCount(1);
+self::assertEmailHtmlBodyContains(self::getMailerMessage(), 'Merci Jane');
 ```
-
-Ou mocker directement `MailerClientInterface`.

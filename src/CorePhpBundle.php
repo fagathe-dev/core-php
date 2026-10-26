@@ -21,7 +21,6 @@ final class CorePhpBundle extends AbstractBundle
      * Fichiers de configuration thématiques, relatifs à ce fichier.
      */
     private const CONFIG_FILES = [
-        '../config/mailer_api.yaml',
         '../config/my_logger.yaml',
         '../config/my_uploader.yaml',
         '../config/my_email.yaml',

@@ -307,5 +307,7 @@ try {
 ## Suppression d'un fichier
 
 ```php
-$this->uploaderService->delete('uploads/avatars/ancien-fichier.jpg');
+$deleted = $this->uploaderService->delete('uploads/avatars/ancien-fichier.jpg'); // bool
 ```
+
+Seuls les fichiers du dossier d'upload (`public/uploads/` par défaut) peuvent être supprimés. Un chemin contenant `..`, situé hors de ce dossier (ex : `index.php`), visant un dossier, un fichier inexistant ou un lien symbolique qui sort du dossier est ignoré : `delete()` retourne alors `false` sans lever d'exception.

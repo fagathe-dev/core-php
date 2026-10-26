@@ -1,0 +1,58 @@
+{#
+  Layout générique des e-mails : {% extends '@CorePhp/layout.html.twig' %}
+
+  Blocs : logo, content, footer.
+  Variables (injectées par AbstractMailerHandler, voir config/my_email.yaml) :
+    - app_name: Nom de l'application
+    - logo_url: URL absolue du logo (optionnelle : logo masqué si absente)
+    - support_email: Adresse de support (optionnelle : ligne masquée si absente)
+
+  Composants : templates/components/_*.html.twig ({% include '@CorePhp/components/_text.html.twig' with {...} only %})
+  Surchargeable dans le projet hôte : templates/bundles/CorePhpBundle/layout.html.twig
+#}
+<table width="100%" cellpadding="0" cellspacing="0" style="font-family: 'Roboto', sans-serif; font-size: 14px; width: 100%; background-color: #f3f6f9; margin: 0; padding: 0;">
+  <tr>
+    <td style="font-family: 'Roboto', sans-serif; vertical-align: top;" valign="top">&nbsp;</td>
+    <td width="600" style="font-family: 'Roboto', sans-serif; font-size: 14px; vertical-align: top; display: block !important; max-width: 600px !important; clear: both !important; margin: 0 auto;" valign="top">
+      <div style="font-family: 'Roboto', sans-serif; font-size: 14px; max-width: 600px; display: block; margin: 0 auto; padding: 20px;">
+
+        {# ── Logo ── #}
+        {% block logo %}
+        {% if logo_url|default(null) %}
+        <table width="100%" cellpadding="0" cellspacing="0" style="font-family: 'Roboto', sans-serif; margin: 0;">
+          <tr>
+            <td align="center" style="font-family: 'Roboto', sans-serif; padding: 20px 0;">
+              <img src="{{ logo_url }}" alt="{{ app_name|default('Logo') }}" height="30" style="display: block;">
+            </td>
+          </tr>
+        </table>
+        {% endif %}
+        {% endblock %}
+
+        {# ── Card principale ── #}
+        <table width="100%" cellpadding="0" cellspacing="0" style="font-family: 'Roboto', sans-serif; border-radius: 7px; margin: 0; border: none; background-color: #ffffff;">
+          <tr>
+            <td style="font-family: 'Roboto', sans-serif; color: #495057; font-size: 14px; vertical-align: top; margin: 0; padding: 30px; border-radius: 7px; background-color: #ffffff;" valign="top">
+              <table width="100%" cellpadding="0" cellspacing="0" style="font-family: 'Roboto', sans-serif; font-size: 14px; margin: 0;">
+                {% block content %}{% endblock %}
+              </table>
+            </td>
+          </tr>
+        </table>
+
+        {# ── Footer ── #}
+        {% block footer %}
+        <div style="text-align: center; margin: 25px auto 0px auto; font-family: 'Roboto', sans-serif;">
+          {% if support_email|default(null) %}
+          <h4 style="font-family: 'Roboto', sans-serif; font-weight: 500; line-height: 1.5; color: #495057;">Besoin d'aide ?</h4>
+          <p style="font-family: 'Roboto', sans-serif; color: #878a99; line-height: 1.5;">Écrivez-nous à <a href="mailto:{{ support_email }}" style="font-weight: 500; color: #5b5b4b;">{{ support_email }}</a></p>
+          {% endif %}
+          <p style="font-family: 'Roboto', sans-serif; font-size: 14px; color: #98a6ad; margin: 0px;">&copy; {{ "now"|date("Y") }} {{ app_name|default('') }}. Tous droits réservés.</p>
+        </div>
+        {% endblock %}
+
+      </div>
+    </td>
+    <td style="font-family: 'Roboto', sans-serif; vertical-align: top;" valign="top">&nbsp;</td>
+  </tr>
+</table>

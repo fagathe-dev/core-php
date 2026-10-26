@@ -5,20 +5,19 @@ declare(strict_types=1);
 namespace Fagathe\CorePhp\Tests;
 
 use Fagathe\CorePhp\CorePhpBundle;
-use Fagathe\CorePhp\Mailer\Exception\MailerConfigurationException;
-use Fagathe\CorePhp\Mailer\MailerApiClient;
-use Fagathe\CorePhp\Mailer\MailerClientInterface;
-use Fagathe\CorePhp\Mailer\Payload\AuthOtpPayload;
+use Fagathe\CorePhp\Mailer\EmailDeliverabilityChecker;
+use Fagathe\CorePhp\Tests\Mailer\Fixtures\ContactDto;
+use Fagathe\CorePhp\Tests\Mailer\Fixtures\ContactHandler;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
-use Symfony\Component\HttpClient\MockHttpClient;
-use Symfony\Component\HttpClient\Response\JsonMockResponse;
-use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Symfony\Component\Mailer\Envelope;
+use Symfony\Component\Mailer\MailerInterface;
+use Symfony\Component\Mime\Email;
+use Symfony\Component\Mime\RawMessage;
 
 final class CorePhpBundleTest extends TestCase
 {
-    private const array ENV_VARS = ['API_MAILER_BASE_URL', 'API_MAILER_SECRET_KEY'];
+    private const array ENV_VARS = ['APP_NAME', 'DEFAULT_URI', 'DEFAULT_EMAIL_SENDER', 'SUPPORT_EMAIL'];
 
     protected function tearDown(): void
     {
@@ -27,23 +26,24 @@ final class CorePhpBundleTest extends TestCase
         }
     }
 
-    public function testExtensionLoadsMailerApiConfiguration(): void
+    public function testExtensionLoadsEmailConfiguration(): void
     {
         $builder = $this->createContainerBuilder();
-        $bundle = new CorePhpBundle();
-        $bundle->getContainerExtension()?->load([], $builder);
+        (new CorePhpBundle())->getContainerExtension()?->load([], $builder);
 
-        self::assertTrue($builder->hasDefinition(MailerApiClient::class));
-        $definition = $builder->getDefinition(MailerApiClient::class);
-        self::assertTrue($definition->isAutowired());
-        self::assertTrue($definition->isAutoconfigured());
-        self::assertSame('%env(default:core_php.mailer_api.default_base_uri:API_MAILER_BASE_URL)%', $definition->getArgument('$baseUri'));
-        self::assertSame('%env(default::API_MAILER_SECRET_KEY)%', $definition->getArgument('$apiToken'));
+        self::assertTrue($builder->hasDefinition(EmailDeliverabilityChecker::class));
+        self::assertTrue($builder->getDefinition(EmailDeliverabilityChecker::class)->isAutowired());
 
-        self::assertTrue($builder->hasAlias(MailerClientInterface::class));
-        self::assertSame(MailerApiClient::class, (string) $builder->getAlias(MailerClientInterface::class));
+        $expected = [
+            'core_php.email.app_name' => '%env(default::APP_NAME)%',
+            'core_php.email.app_uri' => '%env(default::DEFAULT_URI)%',
+            'core_php.email.support_email' => '%env(default::SUPPORT_EMAIL)%',
+            'core_php.email.check_deliverability' => true,
+        ];
 
-        self::assertSame(MailerApiClient::DEFAULT_BASE_URI, $builder->getParameter('core_php.mailer_api.default_base_uri'));
+        foreach ($expected as $name => $value) {
+            self::assertSame($value, $builder->getParameter($name), $name);
+        }
     }
 
     public function testExtensionLoadsLegacyConstantsAsParameters(): void
@@ -69,45 +69,45 @@ final class CorePhpBundleTest extends TestCase
         self::assertSame(LOGS_DIR, $builder->getParameterBag()->resolveValue('%core_php.logger.logs_dir%'));
     }
 
-    public function testInterfaceResolvesToClientWithDefaultsWhenEnvIsMissing(): void
+    /**
+     * Un handler déclaré par le projet hôte reçoit, via #[Required], le mailer et le
+     * contexte commun lu dans les variables d'environnement.
+     */
+    public function testHostHandlerIsAutowiredWithEmailParameters(): void
     {
-        $httpClient = new MockHttpClient([]);
-        $client = $this->compileAndGetClient($httpClient);
+        $_ENV['APP_NAME'] = 'Mon App';
+        $_ENV['DEFAULT_EMAIL_SENDER'] = 'noreply@app.test';
 
-        self::assertInstanceOf(MailerApiClient::class, $client);
+        $builder = $this->createContainerBuilder();
+        $bundle = new CorePhpBundle();
+        $extension = $bundle->getContainerExtension();
+        self::assertNotNull($extension);
+        $builder->registerExtension($extension);
+        $builder->loadFromExtension($extension->getAlias());
+        $bundle->build($builder);
 
-        // Le conteneur compile sans API_MAILER_SECRET_KEY ; l'erreur n'apparaît qu'à l'appel.
-        $this->expectException(MailerConfigurationException::class);
-        try {
-            $client->healthCheck();
-        } finally {
-            self::assertSame(0, $httpClient->getRequestsCount());
-        }
-    }
+        $builder->register(MailerInterface::class)->setSynthetic(true)->setPublic(true);
+        $builder->register(ContactHandler::class)->setAutowired(true)->setPublic(true);
+        $builder->setParameter('core_php.email.check_deliverability', false);
 
-    public function testClientUsesEnvironmentVariables(): void
-    {
-        $_ENV['API_MAILER_BASE_URL'] = 'https://mailer.internal';
-        $_ENV['API_MAILER_SECRET_KEY'] = 'env-token';
+        $builder->compile(true);
 
-        $response = new JsonMockResponse(['status' => 'success', 'message' => 'E-mail envoyé avec succès.']);
-        $client = $this->compileAndGetClient(new MockHttpClient($response));
+        $mailer = new class implements MailerInterface {
+            public ?RawMessage $sent = null;
 
-        self::assertTrue($client->send(new AuthOtpPayload('jane.doe@gmail.com', '482910'))->isSuccess());
-        self::assertSame('https://mailer.internal/api/emails/send', $response->getRequestUrl());
-        self::assertContains('Authorization: Bearer env-token', $response->getRequestOptions()['headers']);
-    }
+            public function send(RawMessage $message, ?Envelope $envelope = null): void
+            {
+                $this->sent = $message;
+            }
+        };
+        $builder->set(MailerInterface::class, $mailer);
 
-    public function testClientFallsBackToDefaultBaseUri(): void
-    {
-        $_ENV['API_MAILER_SECRET_KEY'] = 'env-token';
+        $handler = $builder->get(ContactHandler::class);
+        self::assertInstanceOf(ContactHandler::class, $handler);
+        $handler->send(new ContactDto('jane.doe@gmail.com', 'Jane', 'Bonjour, voici mon message.'));
 
-        $response = new JsonMockResponse(['status' => 'ok', 'service' => 'mailer-app', 'timestamp' => '2026-10-25T10:00:00+00:00']);
-        $client = $this->compileAndGetClient(new MockHttpClient($response));
-
-        $client->healthCheck();
-
-        self::assertSame(MailerApiClient::DEFAULT_BASE_URI.'/api/health-check', $response->getRequestUrl());
+        self::assertInstanceOf(Email::class, $mailer->sent);
+        self::assertSame('"Mon App" <noreply@app.test>', $mailer->sent->getFrom()[0]->toString());
     }
 
     private function createContainerBuilder(): ContainerBuilder
@@ -118,38 +118,5 @@ final class CorePhpBundleTest extends TestCase
         $builder->setParameter('kernel.debug', false);
 
         return $builder;
-    }
-
-    /**
-     * Compile un conteneur comme le ferait le Kernel d'un projet hôte, avec le
-     * client HTTP fourni par FrameworkBundle remplacé par un mock.
-     */
-    private function compileAndGetClient(HttpClientInterface $httpClient): MailerClientInterface
-    {
-        $builder = $this->createContainerBuilder();
-        $bundle = new CorePhpBundle();
-        $extension = $bundle->getContainerExtension();
-        self::assertNotNull($extension);
-
-        $builder->registerExtension($extension);
-        $builder->loadFromExtension($extension->getAlias());
-        $bundle->build($builder);
-
-        $builder->register(HttpClientInterface::class)->setSynthetic(true)->setPublic(true);
-        // Les services du bundle sont privés : on expose l'alias pour le test.
-        $builder->addCompilerPass(new class implements CompilerPassInterface {
-            public function process(ContainerBuilder $container): void
-            {
-                $container->getAlias(MailerClientInterface::class)->setPublic(true);
-            }
-        });
-
-        $builder->compile(true);
-        $builder->set(HttpClientInterface::class, $httpClient);
-
-        $client = $builder->get(MailerClientInterface::class);
-        self::assertInstanceOf(MailerClientInterface::class, $client);
-
-        return $client;
     }
 }

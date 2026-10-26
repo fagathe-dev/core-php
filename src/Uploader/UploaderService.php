@@ -106,13 +106,56 @@ class UploaderService
         }
     }
 
-    public function delete(string $path): void
+    /**
+     * Supprime un fichier uploadé à partir de son chemin relatif au dossier public (ex: uploads/avatars/photo.jpg).
+     *
+     * Seuls les fichiers du dossier d'upload sont supprimables : un chemin qui en sort (`..`, lien symbolique),
+     * qui vise un dossier ou un fichier inexistant est ignoré.
+     *
+     * @return bool true si le fichier a été supprimé
+     */
+    public function delete(string $path): bool
     {
-        // On construit le chemin absolu à partir de la racine public
-        $absolutePath = $this->getAbsolutePublicDir() . DIRECTORY_SEPARATOR . ltrim(str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $path), DIRECTORY_SEPARATOR);
+        $absolutePath = $this->resolveUploadedFilePath($path);
 
-        if ($this->filesystem->exists($absolutePath)) {
-            $this->filesystem->remove($absolutePath);
+        if ($absolutePath === null) {
+            return false;
         }
+
+        $this->filesystem->remove($absolutePath);
+
+        return true;
+    }
+
+    /**
+     * Retourne le chemin absolu d'un fichier existant du dossier d'upload, null si le chemin en sort.
+     */
+    private function resolveUploadedFilePath(string $path): ?string
+    {
+        $segments = explode('/', str_replace('\\', '/', $path));
+
+        if (str_contains($path, "\0") || in_array('..', $segments, true)) {
+            return null;
+        }
+
+        $relativePath = implode('/', array_filter($segments, static fn(string $segment): bool => $segment !== '' && $segment !== '.'));
+        $uploadDir = $this->getRelativeUploadDir();
+
+        if (!str_starts_with($relativePath, $uploadDir . '/')) {
+            return null;
+        }
+
+        $absolutePath = $this->getAbsolutePublicDir() . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relativePath);
+
+        // Le fichier réel (liens symboliques résolus) doit rester dans le dossier d'upload
+        $realPath = realpath($absolutePath);
+        $realUploadDir = realpath($this->getAbsolutePublicDir() . DIRECTORY_SEPARATOR . $uploadDir);
+
+        if ($realPath === false || $realUploadDir === false || !is_file($realPath)
+            || !str_starts_with($realPath, $realUploadDir . DIRECTORY_SEPARATOR)) {
+            return null;
+        }
+
+        return $absolutePath;
     }
 }

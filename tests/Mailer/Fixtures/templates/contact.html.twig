@@ -1,0 +1,13 @@
+{% extends '@CorePhp/layout.html.twig' %}
+
+{% block content %}
+  {% include '@CorePhp/components/_text.html.twig' with {
+    level: 'h1',
+    content: 'Nouveau message de ' ~ (dto.name|e)
+  } only %}
+
+  {% include '@CorePhp/components/_alert.html.twig' with {
+    type: 'info',
+    content: dto.message|e
+  } only %}
+{% endblock %}

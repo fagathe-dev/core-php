@@ -100,9 +100,24 @@ $result = $this->uploader
 ### Supprimer un fichier
 
 ```php
-$this->uploader->delete($user->getAvatar());
+$this->uploader->delete($user->getAvatar()); // bool : true si le fichier a été supprimé
 // Ex: supprime public/uploads/avatars/alice-6673abc12.jpg
 ```
+
+Le chemin est relatif au dossier public et doit désigner un **fichier** du dossier d'upload (`core_php.uploader.upload_dir`). Sinon `delete()` ne supprime rien et retourne `false`, sans exception :
+
+| Chemin reçu | Résultat |
+|---|---|
+| `uploads/avatars/alice.jpg` (existant) | supprimé, `true` |
+| `uploads/avatars/absent.jpg` | `false` |
+| `../.env`, `uploads/../../.env` | `false` (remontée `..` refusée) |
+| `index.php` | `false` (hors dossier d'upload) |
+| `uploads`, `uploads/avatars` | `false` (dossier) |
+| lien symbolique vers un fichier hors `uploads/` | `false` |
+
+Le même contrôle s'applique au 2ᵉ argument de `upload($file, $oldFilename)` : un ancien chemin invalide est ignoré, l'upload réussit quand même.
+
+> Le chemin attendu est le chemin relatif stocké par l'application (`UploadResult::$relativePath`) : une URL absolue doit d'abord être convertie en chemin relatif.
 
 ### Instanciation hors Symfony DI
 

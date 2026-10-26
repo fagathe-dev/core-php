@@ -1,0 +1,7 @@
+{# Props: url, label, color, custom_style #}
+{% set url = url|default('#') %}
+{% set label = label|default(url) %}
+{% set color = color|default('#5b5b4b') %} 
+{% set custom_style = custom_style|default('') %}
+
+<a href="{{ url }}" target="_blank" style="font-family: 'Roboto', sans-serif; color: {{ color }}; text-decoration: underline; font-size: 14px; {{ custom_style }}">{{ label }}</a>

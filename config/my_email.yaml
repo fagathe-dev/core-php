@@ -1,5 +1,26 @@
 # config/my_email.yaml
+# Envoi d'e-mails (Fagathe\CorePhp\Mailer\*) : contexte commun injecté dans tous les
+# handlers (AbstractMailerHandler) et lu par le layout @CorePhp/layout.html.twig.
+#
+# Variables d'environnement lues dans le projet hôte (toutes optionnelles) :
+#   APP_NAME              Nom de l'application (expéditeur, pied de page)
+#   DEFAULT_URI           URL de l'application, pour rendre le logo absolu
+#   DEFAULT_EMAIL_SENDER  Adresse d'expédition par défaut
+#   LOGO_PATH             Chemin (relatif à DEFAULT_URI) ou URL absolue du logo
+#   SUPPORT_EMAIL         Adresse de support affichée en pied d'e-mail
 parameters:
   core_php.email.default_logo_path: "images/logo.webp"
   core_php.email.default_sender: "%env(default::DEFAULT_EMAIL_SENDER)%"
   core_php.email.logo_path: "%env(default:core_php.email.default_logo_path:LOGO_PATH)%"
+  core_php.email.app_name: "%env(default::APP_NAME)%"
+  core_php.email.app_uri: "%env(default::DEFAULT_URI)%"
+  core_php.email.support_email: "%env(default::SUPPORT_EMAIL)%"
+  # Contrôle DNS (MX / A) du domaine des destinataires avant envoi ; false en test / hors ligne
+  core_php.email.check_deliverability: true
+
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  Fagathe\CorePhp\Mailer\EmailDeliverabilityChecker: ~
