@@ -31,12 +31,18 @@ php bin/console core-php:log-file-rotation
 ## core-php:create-admin-user
 
 core-php ne connaît pas l'entité `User` du projet : la commande gère la saisie et la validation, puis délègue
-la création à **une** implémentation de `Fagathe\CorePhp\Command\AdminUserManagerInterface` fournie par le projet hôte
-(autowirée automatiquement). Sans implémentation, la commande s'arrête avec un message explicite.
+la création à **une** implémentation de `Fagathe\CorePhp\Command\AdminUserManagerInterface` fournie par le projet hôte.
+Sans implémentation, la commande s'arrête avec un message explicite.
+
+> ⚠️ L'interface vit hors du dossier chargé par le projet (`App\` ou un bundle) : Symfony ne crée **pas** l'alias
+> automatiquement. Déclarez-le avec `#[AsAlias(AdminUserManagerInterface::class)]` sur l'implémentation
+> (ou `Fagathe\CorePhp\Command\AdminUserManagerInterface: '@App\Security\AdminUserManager'` dans `services.yaml`).
 
 ```php
 use Fagathe\CorePhp\Command\AdminUserManagerInterface;
+use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
+#[AsAlias(AdminUserManagerInterface::class)]
 final class AdminUserManager implements AdminUserManagerInterface
 {
     public function __construct(
