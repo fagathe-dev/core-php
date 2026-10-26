@@ -24,6 +24,7 @@ final class CorePhpBundle extends AbstractBundle
         '../config/my_logger.yaml',
         '../config/my_uploader.yaml',
         '../config/my_email.yaml',
+        '../config/my_commands.yaml',
     ];
 
     public function loadExtension(array $config, ContainerConfigurator $container, ContainerBuilder $builder): void

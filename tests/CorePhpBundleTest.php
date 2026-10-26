@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Fagathe\CorePhp\Tests;
 
+use Fagathe\CorePhp\Command\CreateAdminUserCommand;
+use Fagathe\CorePhp\Command\LogFilesRotationCommand;
 use Fagathe\CorePhp\CorePhpBundle;
 use Fagathe\CorePhp\Mailer\EmailDeliverabilityChecker;
 use Fagathe\CorePhp\Tests\Mailer\Fixtures\ContactDto;
@@ -23,6 +25,17 @@ final class CorePhpBundleTest extends TestCase
     {
         foreach (self::ENV_VARS as $name) {
             unset($_ENV[$name], $_SERVER[$name]);
+        }
+    }
+
+    public function testExtensionRegistersConsoleCommands(): void
+    {
+        $builder = $this->createContainerBuilder();
+        (new CorePhpBundle())->getContainerExtension()?->load([], $builder);
+
+        foreach ([LogFilesRotationCommand::class, CreateAdminUserCommand::class] as $command) {
+            self::assertTrue($builder->hasDefinition($command), $command);
+            self::assertTrue($builder->getDefinition($command)->isAutoconfigured(), $command.' doit être autoconfiguré (#[AsCommand])');
         }
     }
 

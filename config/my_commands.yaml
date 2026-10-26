@@ -1,0 +1,13 @@
+# config/my_commands.yaml
+# Commandes console de core-php (Fagathe\CorePhp\Command\*).
+#
+#   core-php:log-file-rotation  Rotation des fichiers de logs (JsonLoggerRotation)
+#   core-php:create-admin-user  Création d'un administrateur : nécessite une implémentation
+#                               de Fagathe\CorePhp\Command\AdminUserManagerInterface dans le projet hôte
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  Fagathe\CorePhp\Command\LogFilesRotationCommand: ~
+  Fagathe\CorePhp\Command\CreateAdminUserCommand: ~
