@@ -1,7 +1,11 @@
-{# Props: url, label, color, custom_style #}
+{#
+  Lien en ligne, couleur primary du DS (à insérer dans le content d'un autre composant).
+  Props : url, label, color, custom_style.
+#}
+{% set t = email_theme %}
 {% set url = url|default('#') %}
 {% set label = label|default(url) %}
-{% set color = color|default('#5b5b4b') %} 
+{% set color = color|default(t.roles.primary.base) %}
 {% set custom_style = custom_style|default('') %}
 
-<a href="{{ url }}" target="_blank" style="font-family: 'Roboto', sans-serif; color: {{ color }}; text-decoration: underline; font-size: 14px; {{ custom_style }}">{{ label }}</a>
+<a href="{{ url }}" target="_blank" style="color: {{ color }}; font-family: {{ t.font_sans }}; font-weight: 600; text-decoration: underline; word-break: break-all; {{ custom_style }}">{{ label }}</a>

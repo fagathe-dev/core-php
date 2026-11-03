@@ -1,22 +1,40 @@
-{# Props: level (h1-h6, p, small), size, color, content, align, custom_style #}
+{#
+  Texte sur l'échelle typographique du DS.
+  Props : content (HTML), level (h1–h6, p, small), tone (default, muted, primary, success, warning, info, danger),
+          align, spacing (espace sous le bloc), custom_style.
+  Obsolètes, encore acceptées : color, size (préférer tone).
+
+  h1 → headline-sm · h2 → title-lg · h3 → title-md · h4–h6 → title-sm · p → body-lg · small → body-md atténué
+#}
+{% set t = email_theme %}
 {% set level = level|default('p') %}
 {% set content = content|default('') %}
 {% set align = align|default('left') %}
 {% set custom_style = custom_style|default('') %}
 
-{% set default_sizes = {
-  h1: '32px', h2: '28px', h3: '24px', h4: '20px', h5: '16px', h6: '14px', p: '14px', small: '12px'
+{% set scale = {
+  h1: { size: '24px', weight: 700, line: 1.25, tracking: '-0.015em', spacing: '16px' },
+  h2: { size: '22px', weight: 600, line: 1.35, tracking: '0', spacing: '8px' },
+  h3: { size: '16px', weight: 600, line: 1.35, tracking: '0', spacing: '8px' },
+  h4: { size: '14px', weight: 600, line: 1.35, tracking: '0', spacing: '8px' },
+  h5: { size: '14px', weight: 600, line: 1.35, tracking: '0', spacing: '8px' },
+  h6: { size: '14px', weight: 600, line: 1.35, tracking: '0', spacing: '8px' },
+  p: { size: '16px', weight: 400, line: 1.5, tracking: '0', spacing: '16px' },
+  small: { size: '14px', weight: 400, line: 1.5, tracking: '0', spacing: '8px' }
 } %}
-{% set size = size|default(default_sizes[level]|default('14px')) %}
+{% set s = scale[level]|default(scale.p) %}
 
-{% if level starts with 'h' %}
-  {% set color = color|default('#2b2b22') %} 
-  {% set font_weight = '500' %}
-{% else %}
-  {% set color = color|default('#474739') %} 
-  {% set font_weight = 'normal' %}
-{% endif %}
+{% set tone = tone|default(level == 'small' ? 'muted' : 'default') %}
+{% set tone_colors = { default: t.text, muted: t.text_muted } %}
+{% set color = color|default(tone_colors[tone]|default(t.roles[tone].base|default(t.text))) %}
+{% set size = size|default(s.size) %}
+{% set spacing = spacing|default(s.spacing) %}
+{% set tag = level == 'small' ? 'p' : level %}
 
-{% set base_block = (level == 'small') ? 'display: block;' : '' %}
-
-<{{ level }} style="font-family: 'Roboto', sans-serif; font-size: {{ size }}; color: {{ color }}; font-weight: {{ font_weight }}; margin: 0; line-height: 1.5; text-align: {{ align }}; {{ base_block }} {{ custom_style }}">{{ content|raw }}</{{ level }}>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr>
+    <td style="padding: 0 0 {{ spacing }};">
+      <{{ tag }} style="margin: 0; font-family: {{ t.font_sans }}; font-size: {{ size }}; font-weight: {{ s.weight }}; line-height: {{ s.line }}; letter-spacing: {{ s.tracking }}; color: {{ color }}; text-align: {{ align }}; {{ custom_style }}">{{ content|raw }}</{{ tag }}>
+    </td>
+  </tr>
+</table>

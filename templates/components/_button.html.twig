@@ -1,24 +1,47 @@
-{# Props: url, label, bg_color, text_color, custom_style #}
+{#
+  Bouton (lien) du DS, équivalent de .btn-{variant}-{role}.
+  Props : url, label, role (primary, secondary, tertiary, success, warning, info, danger),
+          variant (solid, soft, outline), size (md 40px, lg 48px), align (center, left, right),
+          full_width, spacing (espace sous le bloc ; 0 pour l'insérer dans un autre composant), custom_style.
+  Obsolètes, encore acceptées : bg_color, text_color (préférer role et variant).
+#}
+{% set t = email_theme %}
 {% set url = url|default('#') %}
 {% set label = label|default('Cliquez ici') %}
-{% set bg_color = bg_color|default('#5b5b4b') %} 
-{% set text_color = text_color|default('#ffffff') %}
+{% set role = t.roles[role|default('primary')] is defined ? role|default('primary') : 'primary' %}
+{% set variant = variant|default('solid') %}
+{% set align = align|default('center') %}
+{% set spacing = spacing|default('16px') %}
+{% set full_width = full_width|default(false) %}
 {% set custom_style = custom_style|default('') %}
+{% set r = t.roles[role] %}
 
-<!--[if mso]>
-<v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="{{ url }}" style="height:40px;v-text-anchor:middle;" arcsize="10%" strokecolor="{{ bg_color }}" fillcolor="{{ bg_color }}">
-<w:anchorlock/>
-<center style="color:{{ text_color }};font-family:'Roboto',sans-serif;font-size:14px;font-weight:400;padding:0 20px;">{{ label }}</center>
-</v:roundrect>
-<![endif]-->
-<!--[if !mso]><!-->
-<table cellpadding="0" cellspacing="0" style="font-family: 'Roboto', sans-serif; margin: 0; {{ custom_style }}">
+{% set looks = {
+  solid: { bg: r.base, color: r.on, border: r.base },
+  soft: { bg: r.container, color: r.on_container, border: r.container },
+  outline: { bg: t.surface, color: r.base, border: r.base }
+} %}
+{% set look = looks[variant]|default(looks.solid) %}
+{% set bg = bg_color|default(look.bg) %}
+{% set color = text_color|default(look.color) %}
+{% set border = bg_color is defined ? bg_color : look.border %}
+
+{% set sizes = { md: { height: 40, px: 20 }, lg: { height: 48, px: 24 } } %}
+{% set z = sizes[size|default('md')]|default(sizes.md) %}
+{% set py = ((z.height - 22) / 2)|round(0, 'floor') %}
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
   <tr>
-    <td align="center" style="font-family: 'Roboto', sans-serif; border-radius: 4px; background-color: {{ bg_color }};" bgcolor="{{ bg_color }}">
-      <a href="{{ url }}" target="_blank" style="font-family: 'Roboto', sans-serif; font-size: 14px; color: {{ text_color }}; text-decoration: none; font-weight: 400; display: inline-block; padding: 10px 20px; border: 1px solid {{ bg_color }}; border-radius: 4px; background-color: {{ bg_color }};">
-        {{ label }}
-      </a>
+    <td align="{{ align }}" style="padding: 0 0 {{ spacing }};">
+      <!--[if mso]>
+      <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="{{ url }}" style="height:{{ z.height }}px;v-text-anchor:middle;{{ full_width ? 'width:100%;' : 'width:260px;' }}" arcsize="{{ (1200 / z.height)|round }}%" strokecolor="{{ border }}" fillcolor="{{ bg }}">
+        <w:anchorlock/>
+        <center style="color:{{ color }};font-family:Arial,sans-serif;font-size:14px;font-weight:600;">{{ label }}</center>
+      </v:roundrect>
+      <![endif]-->
+      <!--[if !mso]><!-->
+      <a href="{{ url }}" target="_blank" style="display: {{ full_width ? 'block' : 'inline-block' }}; padding: {{ py }}px {{ z.px }}px; border: 1px solid {{ border }}; border-radius: {{ t.radius }}; background-color: {{ bg }}; color: {{ color }}; font-family: {{ t.font_sans }}; font-size: 14px; font-weight: 600; line-height: 20px; letter-spacing: 0.01em; text-align: center; text-decoration: none; {{ custom_style }}">{{ label }}</a>
+      <!--<![endif]-->
     </td>
   </tr>
 </table>
-<!--<![endif]-->

@@ -24,3 +24,6 @@ services:
     autoconfigure: true
 
   Fagathe\CorePhp\Mailer\EmailDeliverabilityChecker: ~
+
+  # Globale Twig `email_theme`, lue par @CorePhp/layout.html.twig et @CorePhp/components/*
+  Fagathe\CorePhp\Twig\EmailThemeExtension: ~

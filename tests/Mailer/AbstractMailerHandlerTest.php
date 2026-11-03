@@ -12,6 +12,7 @@ use Fagathe\CorePhp\Mailer\Exception\MailerExceptionInterface;
 use Fagathe\CorePhp\Mailer\Exception\RecipientUnreachableException;
 use Fagathe\CorePhp\Tests\Mailer\Fixtures\ContactDto;
 use Fagathe\CorePhp\Tests\Mailer\Fixtures\ContactHandler;
+use Fagathe\CorePhp\Twig\EmailThemeExtension;
 use PHPUnit\Framework\TestCase;
 use Symfony\Bridge\Twig\Mime\BodyRenderer;
 use Symfony\Bridge\Twig\Mime\TemplatedEmail;
@@ -205,12 +206,34 @@ final class AbstractMailerHandlerTest extends TestCase
         );
     }
 
-    private function render(TemplatedEmail $email): string
+    public function testComponentsRenderWithDesignSystemTokens(): void
+    {
+        $html = $this->createTwig()->render('components.html.twig', ['app_name' => 'Mon App']);
+
+        self::assertStringContainsString('#4b3fd8', $html, 'bouton solid primary');
+        self::assertStringContainsString('#e5e0fa', $html, 'bouton soft primary');
+        self::assertStringContainsString('#fee2e2', $html, 'alerte danger : conteneur du rôle');
+        self::assertStringContainsString('border-radius: 12px', $html, 'rayon de base --ds-radius-md');
+        self::assertStringContainsString('123 456', $html, 'composant _code');
+        self::assertStringContainsString('jane&lt;doe&gt;', $html, 'valeurs de _details échappées');
+        self::assertStringContainsString('Aperçu dans la boîte de réception', $html, 'preheader');
+    }
+
+    private function createTwig(): Environment
     {
         $loader = new FilesystemLoader(__DIR__.'/Fixtures/templates');
         $loader->addPath(\dirname(__DIR__, 2).'/templates', 'CorePhp');
 
-        (new BodyRenderer(new Environment($loader)))->render($email);
+        // strict_variables : une prop mal lue par un composant fait échouer le test
+        $twig = new Environment($loader, ['strict_variables' => true]);
+        $twig->addExtension(new EmailThemeExtension());
+
+        return $twig;
+    }
+
+    private function render(TemplatedEmail $email): string
+    {
+        (new BodyRenderer($this->createTwig()))->render($email);
 
         return (string) $email->getHtmlBody();
     }

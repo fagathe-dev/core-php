@@ -1,28 +1,32 @@
-{# Props: type (success|danger|warning|info), title, content, custom_style #}
-{% set type = type|default('info') %}
+{#
+  Alerte du DS (.alert-soft-{role} / .alert-solid-{role}) : fond du rôle, sans bordure.
+  Props : type (info, success, warning, danger, primary, secondary, tertiary), variant (soft, solid),
+          title, content (HTML), spacing, custom_style.
+#}
+{% set t = email_theme %}
+{% set type = t.roles[type|default('info')] is defined ? type|default('info') : 'info' %}
+{% set variant = variant|default('soft') %}
 {% set title = title|default(null) %}
 {% set content = content|default('') %}
+{% set spacing = spacing|default('16px') %}
 {% set custom_style = custom_style|default('') %}
+{% set r = t.roles[type] %}
+{% set bg = variant == 'solid' ? r.base : r.container %}
+{% set color = variant == 'solid' ? r.on : r.on_container %}
 
-{% set colors = {
-  success: { bg: '#d8f3e2', border: '#45cb85', text: '#0f5132' },
-  danger:  { bg: '#fde8e4', border: '#f06548', text: '#842029' },
-  warning: { bg: '#fef5e5', border: '#ffbe42', text: '#8a5b00' },
-  info:    { bg: '#f4f4f0', border: '#7c7c67', text: '#2b2b22' }
-} %}
-{% set c = colors[type]|default(colors.info) %}
-
-<table width="100%" cellpadding="0" cellspacing="0" style="font-family: 'Roboto', sans-serif; margin: 0; {{ custom_style }}">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
   <tr>
-    <td style="font-family: 'Roboto', sans-serif; background-color: {{ c.bg }}; border-left: 4px solid {{ c.border }}; color: {{ c.text }}; padding: 12px 16px; font-size: 14px; border-radius: 4px;">
-      {% if title %}
-        <div style="font-weight: 600; font-size: 14px; margin-bottom: 4px; color: {{ c.text }};">
-          {{ title }}
-        </div>
-      {% endif %}
-      <div>
-        {{ content|raw }}
-      </div>
+    <td style="padding: 0 0 {{ spacing }};">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td style="padding: 12px 16px; background-color: {{ bg }}; border-radius: {{ t.radius }}; color: {{ color }}; font-family: {{ t.font_sans }}; font-size: 14px; line-height: 1.5; {{ custom_style }}">
+            {% if title %}
+            <p style="margin: 0 0 4px; font-weight: 600; color: {{ color }};">{{ title }}</p>
+            {% endif %}
+            <div style="color: {{ color }};">{{ content|raw }}</div>
+          </td>
+        </tr>
+      </table>
     </td>
   </tr>
 </table>

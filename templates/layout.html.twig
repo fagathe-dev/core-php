@@ -1,58 +1,79 @@
 {#
   Layout générique des e-mails : {% extends '@CorePhp/layout.html.twig' %}
 
-  Blocs : logo, content, footer.
+  Blocs : preheader (optionnel, texte d'aperçu de la boîte de réception, sans HTML), logo, content, footer.
   Variables (injectées par AbstractMailerHandler, voir config/my_email.yaml) :
     - app_name: Nom de l'application
     - logo_url: URL absolue du logo (optionnelle : logo masqué si absente)
     - support_email: Adresse de support (optionnelle : ligne masquée si absente)
+  Tokens : globale `email_theme` (Fagathe\CorePhp\Mailer\EmailTheme, valeurs du Design System).
 
-  Composants : templates/components/_*.html.twig ({% include '@CorePhp/components/_text.html.twig' with {...} only %})
+  Composants : templates/components/_*.html.twig ({% include '@CorePhp/components/_text.html.twig' with {...} only %}).
+  Ils sont empilés dans la carte : chacun porte son espacement bas (prop `spacing`), équivalent du `gap` du DS.
   Surchargeable dans le projet hôte : templates/bundles/CorePhpBundle/layout.html.twig
 #}
-<table width="100%" cellpadding="0" cellspacing="0" style="font-family: 'Roboto', sans-serif; font-size: 14px; width: 100%; background-color: #f3f6f9; margin: 0; padding: 0;">
-  <tr>
-    <td style="font-family: 'Roboto', sans-serif; vertical-align: top;" valign="top">&nbsp;</td>
-    <td width="600" style="font-family: 'Roboto', sans-serif; font-size: 14px; vertical-align: top; display: block !important; max-width: 600px !important; clear: both !important; margin: 0 auto;" valign="top">
-      <div style="font-family: 'Roboto', sans-serif; font-size: 14px; max-width: 600px; display: block; margin: 0 auto; padding: 20px;">
+{% set t = email_theme %}
+<!DOCTYPE html>
+<html lang="fr" xmlns:v="urn:schemas-microsoft-com:vml">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="x-apple-disable-message-reformatting">
+  {# Thème clair imposé : les clients qui inversent les couleurs casseraient les contrastes du DS #}
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
+  <title>{{ app_name|default('') }}</title>
+  <style>
+    @media (max-width: 620px) {
+      .ds-email-gutter { padding: 16px 12px !important; }
+      .ds-email-card { padding: 24px 20px 8px !important; }
+    }
+  </style>
+</head>
+<body style="margin: 0; padding: 0; background-color: {{ t.page }}; -webkit-text-size-adjust: 100%;">
+  {# Texte d'aperçu affiché par la boîte de réception sous l'objet, invisible dans l'e-mail #}
+  {% if block('preheader') is defined and block('preheader')|trim is not empty %}
+  <div style="display: none; max-height: 0; overflow: hidden; mso-hide: all; font-size: 1px; line-height: 1px; color: {{ t.page }}; opacity: 0;">{{ block('preheader')|trim }}</div>
+  {% endif %}
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width: 100%; background-color: {{ t.page }}; font-family: {{ t.font_sans }};">
+    <tr>
+      <td align="center" class="ds-email-gutter" style="padding: 32px 16px;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width: 100%; max-width: 600px;">
 
-        {# ── Logo ── #}
-        {% block logo %}
-        {% if logo_url|default(null) %}
-        <table width="100%" cellpadding="0" cellspacing="0" style="font-family: 'Roboto', sans-serif; margin: 0;">
+          {# ── Logo ── #}
+          {% block logo %}
+          {% if logo_url|default(null) %}
           <tr>
-            <td align="center" style="font-family: 'Roboto', sans-serif; padding: 20px 0;">
-              <img src="{{ logo_url }}" alt="{{ app_name|default('Logo') }}" height="30" style="display: block;">
+            <td align="center" style="padding: 0 0 24px;">
+              <img src="{{ logo_url }}" alt="{{ app_name|default('Logo') }}" height="32" style="display: block; height: 32px; width: auto; border: 0;">
             </td>
           </tr>
-        </table>
-        {% endif %}
-        {% endblock %}
-
-        {# ── Card principale ── #}
-        <table width="100%" cellpadding="0" cellspacing="0" style="font-family: 'Roboto', sans-serif; border-radius: 7px; margin: 0; border: none; background-color: #ffffff;">
-          <tr>
-            <td style="font-family: 'Roboto', sans-serif; color: #495057; font-size: 14px; vertical-align: top; margin: 0; padding: 30px; border-radius: 7px; background-color: #ffffff;" valign="top">
-              <table width="100%" cellpadding="0" cellspacing="0" style="font-family: 'Roboto', sans-serif; font-size: 14px; margin: 0;">
-                {% block content %}{% endblock %}
-              </table>
-            </td>
-          </tr>
-        </table>
-
-        {# ── Footer ── #}
-        {% block footer %}
-        <div style="text-align: center; margin: 25px auto 0px auto; font-family: 'Roboto', sans-serif;">
-          {% if support_email|default(null) %}
-          <h4 style="font-family: 'Roboto', sans-serif; font-weight: 500; line-height: 1.5; color: #495057;">Besoin d'aide ?</h4>
-          <p style="font-family: 'Roboto', sans-serif; color: #878a99; line-height: 1.5;">Écrivez-nous à <a href="mailto:{{ support_email }}" style="font-weight: 500; color: #5b5b4b;">{{ support_email }}</a></p>
           {% endif %}
-          <p style="font-family: 'Roboto', sans-serif; font-size: 14px; color: #98a6ad; margin: 0px;">&copy; {{ "now"|date("Y") }} {{ app_name|default('') }}. Tous droits réservés.</p>
-        </div>
-        {% endblock %}
+          {% endblock %}
 
-      </div>
-    </td>
-    <td style="font-family: 'Roboto', sans-serif; vertical-align: top;" valign="top">&nbsp;</td>
-  </tr>
-</table>
+          {# ── Carte principale : surface blanche, contour discret, rayon de base ── #}
+          <tr>
+            <td class="ds-email-card" style="padding: 32px 32px 16px; background-color: {{ t.surface }}; border: 1px solid {{ t.border }}; border-radius: {{ t.radius }}; color: {{ t.text }}; font-family: {{ t.font_sans }}; font-size: 16px; line-height: 1.5; text-align: left;">
+              {% block content %}{% endblock %}
+            </td>
+          </tr>
+
+          {# ── Pied de page ── #}
+          {% block footer %}
+          <tr>
+            <td align="center" style="padding: 24px 16px 0; font-family: {{ t.font_sans }}; font-size: 14px; line-height: 1.5; color: {{ t.text_muted }};">
+              {% if support_email|default(null) %}
+              <p style="margin: 0 0 4px; font-weight: 600; color: {{ t.text }};">Besoin d'aide ?</p>
+              <p style="margin: 0 0 16px;">Écrivez-nous à <a href="mailto:{{ support_email }}" style="color: {{ t.roles.primary.base }}; font-weight: 600; text-decoration: underline;">{{ support_email }}</a></p>
+              {% endif %}
+              <p style="margin: 0; font-size: 12px;">&copy; {{ "now"|date("Y") }} {{ app_name|default('') }}. Tous droits réservés.</p>
+            </td>
+          </tr>
+          {% endblock %}
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

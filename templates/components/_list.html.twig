@@ -1,13 +1,24 @@
-{# Props: items (array), bullet_color, custom_style #}
+{#
+  Liste à puces (body-lg), puces dans la couleur primary du DS.
+  Props : items (tableau de HTML), bullet_color, spacing, custom_style.
+#}
+{% set t = email_theme %}
 {% set items = items|default([]) %}
-{% set bullet_color = bullet_color|default('#5b5b4b') %} 
+{% set bullet_color = bullet_color|default(t.roles.primary.base) %}
+{% set spacing = spacing|default('16px') %}
 {% set custom_style = custom_style|default('') %}
 
-<table width="100%" cellpadding="0" cellspacing="0" style="font-family: 'Roboto', sans-serif; margin: 0; {{ custom_style }}">
-  {% for item in items %}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
   <tr>
-    <td width="20" style="font-family: 'Roboto', sans-serif; vertical-align: top; padding: 4px 0; color: {{ bullet_color }}; font-size: 14px;" valign="top">&#8226;</td>
-    <td style="font-family: 'Roboto', sans-serif; vertical-align: top; padding: 4px 0; color: #474739; font-size: 14px;" valign="top">{{ item|raw }}</td>
+    <td style="padding: 0 0 {{ spacing }};">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="{{ custom_style }}">
+        {% for item in items %}
+        <tr>
+          <td width="20" valign="top" style="padding: 4px 0; color: {{ bullet_color }}; font-family: {{ t.font_sans }}; font-size: 16px; line-height: 1.5;">&#8226;</td>
+          <td valign="top" style="padding: 4px 0; color: {{ t.text }}; font-family: {{ t.font_sans }}; font-size: 16px; line-height: 1.5;">{{ item|raw }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    </td>
   </tr>
-  {% endfor %}
 </table>

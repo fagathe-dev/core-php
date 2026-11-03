@@ -1,12 +1,17 @@
-{# Props: color, height, custom_style #}
-{% set color = color|default('#e8e8e3') %} 
+{#
+  Séparateur décoratif du DS : 1px outline-variant.
+  Props : color, height, spacing (en px, défaut 8 : avec l'espacement du bloc précédent, 24px de part et d'autre), custom_style.
+#}
+{% set t = email_theme %}
+{% set color = color|default(t.outline_variant) %}
 {% set height = height|default('1px') %}
+{% set spacing = spacing|default(8) %}
 {% set custom_style = custom_style|default('') %}
 
-<table width="100%" cellpadding="0" cellspacing="0" style="font-family: 'Roboto', sans-serif; margin: 0; {{ custom_style }}">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
   <tr>
-    <td style="font-family: 'Roboto', sans-serif; padding: 12px 0;">
-      <div style="height: {{ height }}; background-color: {{ color }}; line-height: {{ height }}; font-size: 0;">&nbsp;</div>
+    <td style="padding: {{ spacing }}px 0 {{ spacing + 16 }}px;">
+      <div style="height: {{ height }}; line-height: {{ height }}; font-size: 0; background-color: {{ color }}; {{ custom_style }}">&nbsp;</div>
     </td>
   </tr>
 </table>

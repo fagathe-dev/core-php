@@ -1,0 +1,34 @@
+{# Tous les composants, avec leurs props principales : rendu vérifié en strict_variables #}
+{% extends '@CorePhp/layout.html.twig' %}
+
+{% block preheader %}Aperçu dans la boîte de réception{% endblock %}
+
+{% block content %}
+  {% for level in ['h1', 'h2', 'h3', 'p', 'small'] %}
+    {% include '@CorePhp/components/_text.html.twig' with { level: level, content: 'Texte ' ~ level } only %}
+  {% endfor %}
+  {% include '@CorePhp/components/_text.html.twig' with { content: 'Texte en danger', tone: 'danger' } only %}
+
+  {% include '@CorePhp/components/_button.html.twig' with { url: 'https://app.test/a', label: 'Solid' } only %}
+  {% include '@CorePhp/components/_button.html.twig' with { url: 'https://app.test/b', label: 'Soft', variant: 'soft' } only %}
+  {% include '@CorePhp/components/_button.html.twig' with { url: 'https://app.test/c', label: 'Outline', variant: 'outline', role: 'danger', size: 'lg', full_width: true } only %}
+
+  {% for type in ['info', 'success', 'warning', 'danger'] %}
+    {% include '@CorePhp/components/_alert.html.twig' with { type: type, title: 'Alerte ' ~ type, content: 'Contenu' } only %}
+  {% endfor %}
+
+  {% include '@CorePhp/components/_code.html.twig' with { code: '123 456', label: 'Votre code' } only %}
+  {% include '@CorePhp/components/_code.html.twig' with { code: '654 321', role: 'danger' } only %}
+
+  {% include '@CorePhp/components/_details.html.twig' with { rows: [
+    { label: 'Utilisateur', value: 'jane<doe>', mono: true },
+    { label: 'Rôle', value: 'Administrateur', tone: 'primary' }
+  ] } only %}
+
+  {% include '@CorePhp/components/_box.html.twig' with { content: 'Encart' } only %}
+  {% include '@CorePhp/components/_box.html.twig' with { content: 'Encart danger', role: 'danger' } only %}
+  {% include '@CorePhp/components/_card.html.twig' with { content: 'Carte' } only %}
+  {% include '@CorePhp/components/_list.html.twig' with { items: ['Un', 'Deux'] } only %}
+  {% include '@CorePhp/components/_section.html.twig' with { align: 'center', content: include('@CorePhp/components/_link.html.twig', { url: 'https://app.test' }, with_context = false) } only %}
+  {% include '@CorePhp/components/_divider.html.twig' only %}
+{% endblock %}

@@ -1,0 +1,27 @@
+{#
+  Récapitulatif libellé / valeur (identifiants, informations de compte) dans une carte du DS.
+  Props : rows (liste de { label, value, mono (police mono), tone (primary, danger…, met la valeur en avant) }),
+          spacing.
+  Les valeurs sont échappées : passer du texte, pas du HTML.
+#}
+{% set t = email_theme %}
+{% set rows = rows|default([]) %}
+{% set spacing = spacing|default('16px') %}
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr>
+    <td style="padding: 0 0 {{ spacing }};">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border: 1px solid {{ t.border }}; border-radius: {{ t.radius }};">
+        {% for row in rows %}
+        {% set r = row.tone is defined and t.roles[row.tone] is defined ? t.roles[row.tone] : null %}
+        <tr>
+          <td valign="top" width="38%" style="padding: 12px 16px; {{ not loop.last ? 'border-bottom: 1px solid ' ~ t.border ~ ';' }} font-family: {{ t.font_sans }}; font-size: 14px; font-weight: 600; line-height: 1.5; color: {{ t.text_muted }};">{{ row.label }}</td>
+          <td valign="top" style="padding: 12px 16px; {{ not loop.last ? 'border-bottom: 1px solid ' ~ t.border ~ ';' }} font-family: {{ row.mono|default(false) ? t.font_mono : t.font_sans }}; font-size: 14px; line-height: 1.5; word-break: break-all; color: {{ r ? r.base : t.text }}; {{ r ? 'font-weight: 700;' }}">
+            {% if r %}<span style="display: inline-block; padding: 2px 8px; background-color: {{ r.container }}; border-radius: {{ t.radius_sm }}; color: {{ r.on_container }};">{{ row.value }}</span>{% else %}{{ row.value }}{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </table>
+    </td>
+  </tr>
+</table>

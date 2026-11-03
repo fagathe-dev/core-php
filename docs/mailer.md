@@ -13,6 +13,8 @@ Socle **agnostique** d'envoi d'e-mails transactionnels au-dessus de Symfony Mail
 | `Mailer\Exception\*` | Exceptions du module, toutes `MailerExceptionInterface` |
 | `templates/layout.html.twig` | Layout HTML générique (`@CorePhp/layout.html.twig`) |
 | `templates/components/_*.html.twig` | Composants (`@CorePhp/components/…`) |
+| `Mailer\EmailTheme` | Tokens des e-mails : valeurs du thème clair du Design System (sf-p05-design-system) |
+| `Twig\EmailThemeExtension` | Globale Twig `email_theme`, lue par le layout et les composants |
 | `config/my_email.yaml` | Paramètres `core_php.email.*` |
 
 Prérequis dans le projet hôte : `symfony/mailer` configuré (`MAILER_DSN`), `symfony/twig-bundle`, `symfony/validator` (optionnel mais recommandé).
@@ -169,27 +171,42 @@ $this->contactRecap->send(new ContactRecapDto(
 
 ### Layout (`@CorePhp/layout.html.twig`)
 
+Document HTML complet (viewport, thème clair imposé), page en `surface-container`, carte blanche au rayon de base (12px), 600px de large.
+
 | Bloc | Contenu par défaut |
 |---|---|
+| `preheader` | Optionnel : texte d'aperçu affiché par la boîte de réception sous l'objet, invisible dans l'e-mail (texte seul) |
 | `logo` | Logo centré, si `logo_url` est défini |
 | `content` | Corps de l'e-mail (à remplir) |
 | `footer` | « Besoin d'aide ? » si `support_email` est défini, puis © année + `app_name` |
 
 ### Composants (`@CorePhp/components/…`)
 
-À inclure avec `with { … } only`. Tous acceptent `custom_style` (CSS inline ajouté).
+Ils reprennent les composants du Design System, traduits en tables et styles en ligne (les clients mail ignorent les variables CSS). À inclure avec `with { … } only` : ils lisent les tokens dans la globale `email_theme`, jamais une couleur en dur.
 
-| Composant | Props |
-|---|---|
-| `_text.html.twig` | `level` (h1–h6, p, small), `content`, `color`, `size`, `align` |
-| `_button.html.twig` | `url`, `label`, `bg_color`, `text_color` |
-| `_alert.html.twig` | `type` (success, danger, warning, info), `title`, `content` |
-| `_box.html.twig` | `content`, `background`, `padding`, `radius` |
-| `_card.html.twig` | `content`, `background`, `padding` |
-| `_section.html.twig` | `content`, `bg_color`, `padding`, `align` |
-| `_link.html.twig` | `url`, `label`, `color` |
-| `_list.html.twig` | `items` (tableau), `bullet_color` |
-| `_divider.html.twig` | `color`, `height` |
+Les blocs s'empilent dans la carte : chacun porte son espacement bas (`spacing`, 16px par défaut, 8px sous un titre), l'équivalent du `gap` du DS. Aucun composant n'a de marge externe.
+
+| Composant | Props | Équivalent DS |
+|---|---|---|
+| `_text.html.twig` | `content`, `level` (h1–h6, p, small), `tone` (default, muted, ou un rôle), `align`, `spacing` | h1 headline-sm, h2 title-lg, h3 title-md, p body-lg, small body-md atténué |
+| `_button.html.twig` | `url`, `label`, `role` (primary…danger), `variant` (solid, soft, outline), `size` (md, lg), `align` (center par défaut), `full_width` | `.btn-{variant}-{role}`, hauteur 40 / 48px |
+| `_alert.html.twig` | `type` (info, success, warning, danger…), `variant` (soft, solid), `title`, `content` | `.alert-soft-{role}` |
+| `_code.html.twig` | `code`, `label`, `role` (ex. danger) | Code à usage unique, police mono |
+| `_details.html.twig` | `rows` : liste de `{ label, value, mono, tone }` (valeurs échappées) | Récapitulatif libellé / valeur |
+| `_box.html.twig` | `content`, `role`, `background`, `padding`, `radius`, `bordered` | Surface tonale (containment) |
+| `_card.html.twig` | `content`, `background`, `padding` | `.card` |
+| `_section.html.twig` | `content`, `align`, `bg_color`, `padding` | Bloc d'alignement |
+| `_link.html.twig` | `url`, `label`, `color` | Lien primary, à insérer dans un `content` |
+| `_list.html.twig` | `items` (tableau), `bullet_color` | Liste à puces |
+| `_divider.html.twig` | `color`, `height`, `spacing` | Séparateur `outline-variant` |
+
+Tous acceptent `custom_style` (CSS en ligne ajouté) et `spacing`. Anciennes props encore acceptées, à remplacer : `color` et `size` de `_text` (→ `tone`), `bg_color` et `text_color` de `_button` (→ `role`, `variant`).
+
+```twig
+{% include '@CorePhp/components/_button.html.twig' with { url: dto.resetUrl, label: 'Réinitialiser mon mot de passe' } only %}
+{% include '@CorePhp/components/_code.html.twig' with { code: dto.code, role: 'danger' } only %}
+{% include '@CorePhp/components/_text.html.twig' with { level: 'small', content: 'Lien direct : ' ~ (dto.resetUrl|e) } only %}
+```
 
 > ⚠️ `content` est affiché en `|raw` (HTML autorisé). Échapper toute donnée utilisateur avant de la concaténer : `'Bonjour ' ~ (dto.name|e)`, `url|e('html_attr')`.
 

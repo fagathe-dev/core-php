@@ -1,14 +1,25 @@
-{# Props: bg_color, padding, content, align, custom_style #}
+{#
+  Bloc d'alignement (ex. contenu centré). Pour un bouton seul, inclure directement _button.html.twig (centré par défaut).
+  Props : content (HTML), align, bg_color, padding (défaut 0), spacing, custom_style.
+#}
+{% set t = email_theme %}
 {% set bg_color = bg_color|default('transparent') %}
-{% set padding = padding|default('20px 0') %}
+{% set padding = padding|default('0') %}
 {% set content = content|default('') %}
 {% set align = align|default('left') %}
+{% set spacing = spacing|default('16px') %}
 {% set custom_style = custom_style|default('') %}
 
-<table width="100%" cellpadding="0" cellspacing="0" style="font-family: 'Roboto', sans-serif; margin: 0; {{ custom_style }}">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
   <tr>
-    <td align="{{ align }}" style="font-family: 'Roboto', sans-serif; background-color: {{ bg_color }}; padding: {{ padding }}; text-align: {{ align }};">
-      {{ content|raw }}
+    <td style="padding: 0 0 {{ spacing }};">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td align="{{ align }}" style="padding: {{ padding }}; background-color: {{ bg_color }}; text-align: {{ align }}; font-family: {{ t.font_sans }}; {{ custom_style }}">
+            {{ content|raw }}
+          </td>
+        </tr>
+      </table>
     </td>
   </tr>
 </table>
